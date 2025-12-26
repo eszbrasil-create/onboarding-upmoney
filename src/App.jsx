@@ -114,10 +114,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ mede altura real do bloco de opções (para nunca ficar encoberto no mobile)
   useEffect(() => {
     if (!optionsRef.current) return;
-
     const el = optionsRef.current;
 
     const update = () => {
@@ -141,7 +139,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, typing, messages.length]);
 
-  // ✅ auto-scroll mantendo a última mensagem visível + espaço das opções
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -173,7 +170,6 @@ export default function App() {
       return;
     }
 
-    // ✅ se for link (Calendly), abre em nova aba
     if (/^https?:\/\//i.test(opt)) {
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
@@ -181,26 +177,20 @@ export default function App() {
 
     pushUser(opt);
 
-    if (currentStep?.id) {
-      setAnswers((prev) => ({ ...prev, [currentStep.id]: opt }));
-    }
+    if (currentStep?.id) setAnswers((prev) => ({ ...prev, [currentStep.id]: opt }));
 
     let next = step + 1;
 
-    // regras de pulo (mantidas)
     if (FLOW[next]?.id === "blocker" && answers?.alreadyInvest && answers?.alreadyInvest !== "Não, ainda não") {
       next += 1;
     }
-
     if (FLOW[next]?.id === "whereInvest" && answers?.alreadyInvest === "Não, ainda não") {
       next += 1;
     }
 
     setStep(next);
 
-    if (FLOW[next]) {
-      setTimeout(() => pushBot(FLOW[next].bot), 220);
-    }
+    if (FLOW[next]) setTimeout(() => pushBot(FLOW[next].bot), 220);
   }
 
   const lastMsg = messages[messages.length - 1];
@@ -208,37 +198,36 @@ export default function App() {
 
   return (
     <>
-      {/* ✅ CSS mínimo pra garantir 100% mobile-friendly sem mexer no App.css */}
+      {/* ✅ “reset” mínimo: garante que a tela ocupa 100% no mobile e sem sobras laterais */}
       <style>{`
-        html, body, #root { height: 100%; }
-        body { margin: 0; overflow: hidden; }
-        /* iOS safe areas */
+        * { box-sizing: border-box; }
+        html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; }
+        body { overflow: hidden; background: #f6f7fb; }
         .safeBottom { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
       `}</style>
 
+      {/* ✅ Wrapper full width/height (sem centralizar com padding) */}
       <div
         style={{
-          height: "100dvh", // ✅ viewport dinâmico real no mobile
+          width: "100vw",
+          height: "100dvh",
           background: "#f6f7fb",
-          display: "flex",
-          justifyContent: "center",
-          padding: 0,
         }}
       >
+        {/* ✅ “Card” vira tela cheia no mobile: width 100%, maxWidth none */}
         <div
           style={{
             width: "100%",
-            maxWidth: 520,
             height: "100%",
+            maxWidth: "none",
             background: "white",
-            borderRadius: 0, // ✅ melhor no mobile (full screen)
+            borderRadius: 0,
             overflow: "hidden",
-            boxShadow: "none",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          {/* CHAT (única área rolável) */}
+          {/* CHAT */}
           <div
             ref={chatRef}
             style={{
@@ -246,7 +235,6 @@ export default function App() {
               overflowY: "auto",
               WebkitOverflowScrolling: "touch",
               padding: 16,
-              // ✅ deixa espaço pra área de botões embaixo (nunca encobre)
               paddingBottom: optionsHeight + 18,
               background: "linear-gradient(180deg, rgba(246,247,251,1) 0%, rgba(255,255,255,1) 100%)",
             }}
@@ -296,13 +284,14 @@ export default function App() {
             )}
           </div>
 
-          {/* OPTIONS (fixas embaixo, sem “encobrir”) */}
+          {/* OPTIONS fixas embaixo */}
           <div
             ref={optionsRef}
             className="safeBottom"
             style={{
               position: "sticky",
               bottom: 0,
+              width: "100%",
               background: "rgba(255,255,255,0.96)",
               backdropFilter: "blur(10px)",
               borderTop: "1px solid rgba(0,0,0,0.06)",
@@ -310,14 +299,7 @@ export default function App() {
             }}
           >
             {showOptions && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
                 {currentStep.options.map((opt) => (
                   <button
                     key={opt}
