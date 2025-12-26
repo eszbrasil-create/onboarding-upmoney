@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import { saveOnboarding } from "./services/onboardingService";
 
+/* ====== FLOW (inalterado) ====== */
 const FLOW = [
   {
     id: "welcome",
@@ -20,7 +22,11 @@ const FLOW = [
   {
     id: "alreadyInvest",
     bot: "Hoje você já investe?",
-    options: ["Não, ainda não", "Sim, comecei recentemente", "Sim, já invisto há um tempo"],
+    options: [
+      "Não, ainda não",
+      "Sim, comecei recentemente",
+      "Sim, já invisto há um tempo",
+    ],
   },
   {
     id: "blocker",
@@ -35,57 +41,119 @@ const FLOW = [
   {
     id: "whereInvest",
     bot: "Onde você já investe hoje?",
-    options: ["Poupança / Conta remunerada", "Tesouro / Renda fixa", "Ações / FIIs", "Cripto", "Um pouco de tudo"],
+    options: [
+      "Poupança / Conta remunerada",
+      "Tesouro / Renda fixa",
+      "Ações / FIIs",
+      "Cripto",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "invested",
     bot: "Hoje, quanto você já tem investido (aprox.)?",
-    options: ["Nada ainda", "Até R$ 1.000", "R$ 1.000 – R$ 5.000", "R$ 5.000 – R$ 20.000", "R$ 20.000 – R$ 50.000", "Acima de R$ 50.000"],
+    options: [
+      "Nada ainda",
+      "Até R$ 1.000",
+      "R$ 1.000 – R$ 5.000",
+      "R$ 5.000 – R$ 20.000",
+      "R$ 20.000 – R$ 50.000",
+      "Acima de R$ 50.000",
+    ],
   },
   {
     id: "income",
     bot: "Qual é sua renda mensal aproximada?",
-    options: ["Até R$ 1.500", "R$ 1.500 – R$ 3.000", "R$ 3.000 – R$ 6.000", "R$ 6.000 – R$ 10.000", "Acima de R$ 10.000", "Prefiro não informar"],
+    options: [
+      "Até R$ 1.500",
+      "R$ 1.500 – R$ 3.000",
+      "R$ 3.000 – R$ 6.000",
+      "R$ 6.000 – R$ 10.000",
+      "Acima de R$ 10.000",
+      "Prefiro não informar",
+    ],
   },
   {
     id: "monthly",
     bot: "E por mês, quanto você consegue investir (aprox.)?",
-    options: ["R$ 0 por enquanto", "Até R$ 100", "R$ 100 – R$ 300", "R$ 300 – R$ 800", "Acima de R$ 800"],
+    options: [
+      "R$ 0 por enquanto",
+      "Até R$ 100",
+      "R$ 100 – R$ 300",
+      "R$ 300 – R$ 800",
+      "Acima de R$ 800",
+    ],
   },
   {
     id: "time",
     bot: "Em quanto tempo você quer começar a ver resultados?",
-    options: ["1–3 meses", "3–12 meses", "1–3 anos", "Sem pressa, quero consistência"],
+    options: [
+      "1–3 meses",
+      "3–12 meses",
+      "1–3 anos",
+      "Sem pressa, quero consistência",
+    ],
   },
   {
     id: "risk",
     bot: "E qual frase combina mais com você?",
-    options: ["Prefiro segurança total", "Aceito um pouco de risco pra crescer mais", "Topo mais risco por ganhos maiores", "Ainda não sei"],
+    options: [
+      "Prefiro segurança total",
+      "Aceito um pouco de risco pra crescer mais",
+      "Topo mais risco por ganhos maiores",
+      "Ainda não sei",
+    ],
   },
   {
     id: "dividends",
     bot: "Dividendos são um objetivo pra você?",
-    options: ["Sim, é meu foco principal", "Quero, mas primeiro preciso organizar tudo", "Prefiro crescimento do patrimônio", "Ainda não sei"],
+    options: [
+      "Sim, é meu foco principal",
+      "Quero, mas primeiro preciso organizar tudo",
+      "Prefiro crescimento do patrimônio",
+      "Ainda não sei",
+    ],
   },
   {
     id: "firstDividendEmotion",
     bot: "Se você recebesse seu primeiro dividendo, qual valor já te deixaria feliz?",
-    options: ["Qualquer valor, só pra começar", "R$ 10 – R$ 50", "R$ 50 – R$ 200", "R$ 200+"],
+    options: [
+      "Qualquer valor, só pra começar",
+      "R$ 10 – R$ 50",
+      "R$ 50 – R$ 200",
+      "R$ 200+",
+    ],
   },
   {
     id: "expenseControl",
     bot: "Hoje você faz algum controle das suas despesas?",
-    options: ["Não controlo", "Anoto em papel", "Uso planilha", "Uso algum app", "Já controlo bem"],
+    options: [
+      "Não controlo",
+      "Anoto em papel",
+      "Uso planilha",
+      "Uso algum app",
+      "Já controlo bem",
+    ],
   },
   {
     id: "coaching",
     bot: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
-    options: ["Sim, gosto de acompanhamento passo a passo", "Prefiro aprender sozinho(a)", "Depende do momento", "Nunca tive, mas teria interesse"],
+    options: [
+      "Sim, gosto de acompanhamento passo a passo",
+      "Prefiro aprender sozinho(a)",
+      "Depende do momento",
+      "Nunca tive, mas teria interesse",
+    ],
   },
   {
     id: "learning",
     bot: "E você prefere aprender como?",
-    options: ["Passo a passo bem simples", "Resumo rápido + ação prática", "Explicação completa", "Um pouco de tudo"],
+    options: [
+      "Passo a passo bem simples",
+      "Resumo rápido + ação prática",
+      "Explicação completa",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "done",
@@ -105,16 +173,62 @@ export default function App() {
   const optionsRef = useRef(null);
   const didInit = useRef(false);
 
-  const currentStep = useMemo(() => FLOW[step], [step]);
+  /* ====== 🔊 AUDIO CONTEXT ====== */
+  const audioCtxRef = useRef(null);
+  const soundEnabledRef = useRef(false);
 
+  function playPop() {
+    if (!soundEnabledRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = 880;
+
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch {}
+  }
+
+  /* ====== ✅ SAVE (Opção A) ====== */
+  async function handleFinishSave(finalAnswers) {
+    // segurança: tenta salvar e, se falhar, ao menos guarda local para você recuperar
+    try {
+      await saveOnboarding(finalAnswers);
+      // Se quiser, depois a gente coloca um feedback visual "✅ Salvo"
+      // por enquanto, minimalista.
+    } catch (e) {
+      console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
+      try {
+        localStorage.setItem(
+          "onboarding_backup_answers",
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            answers: finalAnswers,
+          })
+        );
+      } catch {}
+    }
+  }
+
+  /* ====== INIT ====== */
   useEffect(() => {
     if (didInit.current) return;
     didInit.current = true;
     pushBot(FLOW[0].bot);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // mede altura real do bloco de opções para não encobrir o chat
+  /* ====== OPTIONS HEIGHT ====== */
   useEffect(() => {
     if (!optionsRef.current) return;
     const el = optionsRef.current;
@@ -125,10 +239,8 @@ export default function App() {
     };
 
     update();
-
     const ro = new ResizeObserver(update);
     ro.observe(el);
-
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
 
@@ -140,44 +252,45 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, typing, messages.length]);
 
-  // auto-scroll
+  /* ====== SCROLL ====== */
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing, optionsHeight]);
 
+  /* ====== HELPERS ====== */
   function pushBot(text) {
     setTyping(true);
     setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), from: "bot", text },
-      ]);
+      setMessages((prev) => [...prev, { from: "bot", text }]);
+      playPop();
       setTyping(false);
     }, 650);
   }
 
   function pushUser(text) {
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), from: "user", text },
-    ]);
-  }
-
-  function resetFlow() {
-    setMessages([]);
-    setStep(0);
-    setTyping(false);
-    setAnswers({});
-    setTimeout(() => pushBot(FLOW[0].bot), 200);
+    if (navigator.vibrate) navigator.vibrate(12);
+    setMessages((prev) => [...prev, { from: "user", text }]);
   }
 
   function handleOptionClick(opt) {
+    // 🔓 ativa som após primeira interação
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
+      soundEnabledRef.current = true;
+    }
+
     if (opt === "Recomeçar") {
-      resetFlow();
+      setMessages([]);
+      setStep(0);
+      setAnswers({});
+      setTyping(false);
+      setTimeout(() => pushBot(FLOW[0].bot), 200);
       return;
     }
 
+    // Link externo (Calendly)
     if (/^https?:\/\//i.test(opt)) {
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
@@ -185,216 +298,103 @@ export default function App() {
 
     pushUser(opt);
 
-    if (currentStep?.id) setAnswers((prev) => ({ ...prev, [currentStep.id]: opt }));
+    const currentId = FLOW[step]?.id;
+    const nextStep = step + 1;
 
-    let next = step + 1;
+    // monta respostas finais já com a resposta atual
+    const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
 
-    if (FLOW[next]?.id === "blocker" && answers?.alreadyInvest && answers?.alreadyInvest !== "Não, ainda não") {
-      next += 1;
+    if (currentId) {
+      setAnswers(nextAnswers);
     }
-    if (FLOW[next]?.id === "whereInvest" && answers?.alreadyInvest === "Não, ainda não") {
-      next += 1;
+
+    // ✅ Se o próximo step for "done", salva no Supabase ANTES de mostrar o done
+    if (FLOW[nextStep]?.id === "done") {
+      handleFinishSave(nextAnswers);
     }
 
-    setStep(next);
-    if (FLOW[next]) setTimeout(() => pushBot(FLOW[next].bot), 220);
+    setStep(nextStep);
+    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 220);
   }
 
   const lastMsg = messages[messages.length - 1];
-  const showOptions = !typing && currentStep?.options?.length && lastMsg?.from === "bot";
+  const showOptions = !typing && FLOW[step]?.options && lastMsg?.from === "bot";
 
   return (
-    <>
-      {/* CSS mínimo + animações */}
-      <style>{`
-        * { box-sizing: border-box; }
-        html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; }
-        body { overflow: hidden; background: #f6f7fb; }
-        .safeBottom { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-
-        /* ===== Micro animações ===== */
-        @keyframes msgIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes panelIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes dot {
-          0%, 80%, 100% { transform: translateY(0); opacity: .4; }
-          40% { transform: translateY(-3px); opacity: 1; }
-        }
-
-        .bubble {
-          animation: msgIn 180ms ease-out both;
-          will-change: transform, opacity;
-        }
-        .optionsPanel {
-          animation: panelIn 200ms ease-out both;
-          will-change: transform, opacity;
-        }
-        .btn {
-          transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .btn:active { transform: scale(0.98); }
-
-        .typingDots span {
-          display: inline-block;
-          width: 6px;
-          height: 6px;
-          margin-left: 4px;
-          border-radius: 999px;
-          background: #9ca3af;
-          animation: dot 900ms infinite ease-in-out;
-        }
-        .typingDots span:nth-child(2) { animation-delay: 120ms; }
-        .typingDots span:nth-child(3) { animation-delay: 240ms; }
-
-        /* Acessibilidade: se o usuário preferir menos movimento */
-        @media (prefers-reduced-motion: reduce) {
-          .bubble, .optionsPanel { animation: none !important; }
-          .btn { transition: none !important; }
-          .typingDots span { animation: none !important; }
-        }
-      `}</style>
-
-      <div style={{ width: "100vw", height: "100dvh", background: "#f6f7fb" }}>
+    <div style={{ width: "100vw", height: "100dvh", background: "#f6f7fb" }}>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "white",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <div
+          ref={chatRef}
           style={{
-            width: "100%",
-            height: "100%",
-            maxWidth: "none",
-            background: "white",
-            borderRadius: 0,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
+            flex: 1,
+            overflowY: "auto",
+            padding: 16,
+            paddingBottom: optionsHeight + 20,
           }}
         >
-          {/* CHAT */}
-          <div
-            ref={chatRef}
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              padding: 16,
-              paddingBottom: optionsHeight + 18,
-              background:
-                "linear-gradient(180deg, rgba(246,247,251,1) 0%, rgba(255,255,255,1) 100%)",
-            }}
-          >
-            {messages.map((m) => (
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                justifyContent: m.from === "user" ? "flex-end" : "flex-start",
+                marginBottom: 10,
+              }}
+            >
               <div
-                key={m.id}
                 style={{
-                  display: "flex",
-                  justifyContent: m.from === "user" ? "flex-end" : "flex-start",
-                  marginBottom: 10,
+                  maxWidth: "86%",
+                  padding: "10px 12px",
+                  borderRadius: 16,
+                  background: m.from === "user" ? "#2563eb" : "#fff",
+                  color: m.from === "user" ? "#fff" : "#111",
                 }}
               >
-                <div
-                  className="bubble"
-                  style={{
-                    maxWidth: "86%",
-                    padding: "10px 12px",
-                    borderRadius: 16,
-                    background: m.from === "user" ? "#2563eb" : "white",
-                    color: m.from === "user" ? "white" : "#111827",
-                    border:
-                      m.from === "user"
-                        ? "1px solid rgba(37,99,235,0.25)"
-                        : "1px solid rgba(0,0,0,0.08)",
-                    boxShadow:
-                      m.from === "user"
-                        ? "0 8px 18px rgba(37,99,235,0.14)"
-                        : "0 8px 18px rgba(0,0,0,0.04)",
-                    fontSize: 15,
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {m.text}
-                </div>
+                {m.text}
               </div>
-            ))}
+            </div>
+          ))}
+          {typing && <div>digitando•••</div>}
+        </div>
 
-            {typing && (
-              <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
-                <div
-                  className="bubble"
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 16,
-                    fontSize: 14,
-                    background: "white",
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    color: "#6b7280",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  digitando
-                  <span className="typingDots" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* OPTIONS */}
+        {showOptions && (
           <div
             ref={optionsRef}
-            className="safeBottom"
-            style={{
-              position: "sticky",
-              bottom: 0,
-              width: "100%",
-              background: "rgba(255,255,255,0.96)",
-              backdropFilter: "blur(10px)",
-              borderTop: "1px solid rgba(0,0,0,0.06)",
-              padding: 12,
-            }}
+            style={{ padding: 12, borderTop: "1px solid #eee" }}
           >
-            {showOptions && (
-              <div
-                className="optionsPanel"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  justifyContent: "center",
-                }}
-              >
-                {currentStep.options.map((opt) => (
-                  <button
-                    key={opt}
-                    className="btn"
-                    onClick={() => handleOptionClick(opt)}
-                    style={{
-                      padding: "12px 14px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(0,0,0,0.12)",
-                      background: "white",
-                      cursor: "pointer",
-                      fontWeight: 650,
-                      fontSize: 14,
-                      maxWidth: "100%",
-                    }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                justifyContent: "center",
+              }}
+            >
+              {FLOW[step].options.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => handleOptionClick(opt)}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                  }}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
