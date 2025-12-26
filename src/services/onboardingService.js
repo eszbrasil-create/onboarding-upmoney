@@ -2,35 +2,34 @@
 import { supabase } from "../supabaseClient";
 
 /**
- * Salva respostas do onboarding para o usuário logado.
- * Tabela esperada: public.onboarding_responses
- * Colunas: user_id (uuid), answers (jsonb)
+ * Salva respostas do onboarding (sem login).
+ * Tabela esperada: public.onboarding_questionnaire
+ * Colunas: id (uuid), email (text), answers (jsonb), created_at (timestamptz)
+ *
+ * - email é opcional (pode ser null)
+ * - answers é o objeto inteiro do fluxo
  */
-export async function saveOnboarding(answers) {
-  // Pega usuário logado
-  const { data: authData, error: authErr } = await supabase.auth.getUser();
-  if (authErr) throw authErr;
-
-  const user = authData?.user;
-  if (!user?.id) {
-    // Se o app não tiver login, não tem como linkar ao mesmo user_id
-    throw new Error("Usuário não autenticado. Não foi possível salvar.");
+export async function saveOnboarding(answers, email = null) {
+  if (!answers || typeof answers !== "object") {
+    throw new Error("answers inválido: esperado um objeto com as respostas.");
   }
 
   const payload = {
-    user_id: user.id,
+    email,   // pode ser null
     answers, // jsonb
-    updated_at: new Date().toISOString(),
   };
 
-  // ✅ Opção A: INSERT simples (1 linha por preenchimento)
-  // Se quiser virar 1 por usuário, depois a gente troca para UPSERT (Opção B)
   const { data, error } = await supabase
-    .from("onboarding_responses")
+    .from("onboarding_questionnaire")
     .insert(payload)
-    .select()
+    .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Ajuda a debugar no console
+    console.error("[saveOnboarding] Supabase error:", error);
+    throw error;
+  }
+
   return data;
 }
