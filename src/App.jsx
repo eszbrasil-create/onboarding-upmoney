@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { saveOnboardingByEmail } from "./services/onboardingService";
+import { saveOnboarding } from "./services/onboardingService";
 
-/* ====== FLOW ====== */
+/* ====== FLOW (inalterado + email como primeiro passo) ====== */
 const FLOW = [
+  {
+    id: "email",
+    bot: "Para começar, digite seu e-mail 😊",
+    type: "input_email",
+  },
   {
     id: "welcome",
     bot: "Oi! 👋 Eu sou o upmoney, seu assistente de educação financeira. Vou te fazer algumas perguntas rápidas (leva menos de 1 minuto) pra entender seu momento.",
@@ -162,32 +167,84 @@ const FLOW = [
   },
 ];
 
-export default function App() {
-  // EMAIL FIRST
-  const [email, setEmail] = useState("");
-  const [emailOk, setEmailOk] = useState(false);
-  const [emailMsg, setEmailMsg] = useState("");
+function normalizeEmail(v) {
+  return (v || "").trim().toLowerCase();
+}
+function isValidEmail(v) {
+  const e = normalizeEmail(v);
+  return e.includes("@") && e.includes(".") && e.length >= 6;
+}
 
-  // CHAT
+export default function App() {
   const [messages, setMessages] = useState([]);
   const [step, setStep] = useState(0);
   const [typing, setTyping] = useState(false);
   const [answers, setAnswers] = useState({});
   const [optionsHeight, setOptionsHeight] = useState(120);
 
+  // email state (primeiro passo)
+  const [emailInput, setEmailInput] = useState("");
+  const [userEmail, setUserEmail] = useState(null);
+
   const chatRef = useRef(null);
   const optionsRef = useRef(null);
   const didInit = useRef(false);
 
-  // init flow after email
+  /* ====== 🔊 AUDIO CONTEXT ====== */
+  const audioCtxRef = useRef(null);
+  const soundEnabledRef = useRef(false);
+
+  function playPop() {
+    if (!soundEnabledRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = 880;
+
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch {}
+  }
+
+  /* ====== ✅ SAVE (por e-mail) ====== */
+  async function handleFinishSave(finalAnswers) {
+    try {
+      // salva sempre com o e-mail que o usuário digitou no começo
+      await saveOnboarding(finalAnswers, userEmail);
+    } catch (e) {
+      console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
+      try {
+        localStorage.setItem(
+          "onboarding_backup_answers",
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            email: userEmail,
+            answers: finalAnswers,
+          })
+        );
+      } catch {}
+    }
+  }
+
+  /* ====== INIT ====== */
   useEffect(() => {
-    if (!emailOk) return;
     if (didInit.current) return;
     didInit.current = true;
     pushBot(FLOW[0].bot);
-  }, [emailOk]);
+  }, []);
 
-  // options height
+  /* ====== OPTIONS HEIGHT ====== */
   useEffect(() => {
     if (!optionsRef.current) return;
     const el = optionsRef.current;
@@ -211,66 +268,84 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, typing, messages.length]);
 
-  // scroll
+  /* ====== SCROLL ====== */
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing, optionsHeight]);
 
+  /* ====== HELPERS ====== */
   function pushBot(text) {
     setTyping(true);
     setTimeout(() => {
       setMessages((prev) => [...prev, { from: "bot", text }]);
+      playPop();
       setTyping(false);
     }, 450);
   }
 
   function pushUser(text) {
+    if (navigator.vibrate) navigator.vibrate(12);
     setMessages((prev) => [...prev, { from: "user", text }]);
   }
 
-  async function handleFinishSave(finalAnswers) {
-    try {
-      await saveOnboardingByEmail({ email, answers: finalAnswers });
-    } catch (e) {
-      console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
-      try {
-        localStorage.setItem(
-          "onboarding_backup_answers",
-          JSON.stringify({ savedAt: new Date().toISOString(), email, answers: finalAnswers })
-        );
-      } catch {}
-    }
+  function restart() {
+    setMessages([]);
+    setStep(0);
+    setAnswers({});
+    setTyping(false);
+    setEmailInput("");
+    setUserEmail(null);
+    setTimeout(() => pushBot(FLOW[0].bot), 200);
   }
 
-  function startWithEmail() {
-    const clean = email.trim().toLowerCase();
-    if (!clean || !clean.includes("@")) {
-      setEmailMsg("Digite um e-mail válido.");
+  function goNextStepAndAskBot() {
+    const nextStep = step + 1;
+    setStep(nextStep);
+    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 200);
+  }
+
+  function handleEmailContinue() {
+    // ativa som após primeira interação
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
+      soundEnabledRef.current = true;
+    }
+
+    const clean = normalizeEmail(emailInput);
+    if (!isValidEmail(clean)) {
+      pushBot("Hmm… esse e-mail parece inválido. Pode conferir e tentar de novo?");
       return;
     }
-    setEmail(clean);
-    setEmailMsg("");
-    setEmailOk(true);
+
+    setUserEmail(clean);
+    pushUser(clean);
+
+    // guarda no answers também (para ficar no JSON final)
+    setAnswers((prev) => ({ ...prev, email: clean }));
+
+    goNextStepAndAskBot();
   }
 
   function handleOptionClick(opt) {
+    // ativa som após primeira interação
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
+      soundEnabledRef.current = true;
+    }
+
     if (opt === "Recomeçar") {
-      setMessages([]);
-      setStep(0);
-      setAnswers({});
-      setTyping(false);
-      setTimeout(() => pushBot(FLOW[0].bot), 200);
+      restart();
       return;
     }
 
     const currentId = FLOW[step]?.id;
-    const nextStep = step + 1;
 
-    const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
-
-    // Se clicou no link: salva e abre
+    // Link externo (Calendly): salva antes e depois abre
     if (/^https?:\/\//i.test(opt)) {
+      const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
       handleFinishSave(nextAnswers);
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
@@ -278,84 +353,87 @@ export default function App() {
 
     pushUser(opt);
 
+    const nextStep = step + 1;
+    const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
+
     if (currentId) setAnswers(nextAnswers);
 
+    // se o próximo step for "done", salva ANTES de mostrar done
     if (FLOW[nextStep]?.id === "done") {
       handleFinishSave(nextAnswers);
     }
 
     setStep(nextStep);
-    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 180);
-  }
-
-  // tela do email
-  if (!emailOk) {
-    return (
-      <div className="page">
-        <div className="cardAuth">
-          <div className="title">upmoney</div>
-          <div className="subtitle">Para começar, digite seu e-mail</div>
-
-          <input
-            className="input"
-            placeholder="Digite seu e-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <button className="btn" onClick={startWithEmail}>
-            Continuar
-          </button>
-
-          {!!emailMsg && <div className="msg">{emailMsg}</div>}
-        </div>
-      </div>
-    );
+    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 200);
   }
 
   const lastMsg = messages[messages.length - 1];
-  const showOptions = !typing && FLOW[step]?.options && lastMsg?.from === "bot";
+  const currentStep = FLOW[step];
+
+  const showOptions =
+    !typing &&
+    currentStep?.options &&
+    lastMsg?.from === "bot" &&
+    currentStep?.id !== "email";
+
+  const showEmailInput =
+    !typing && currentStep?.id === "email" && lastMsg?.from === "bot";
 
   return (
-    <div style={{ width: "100vw", height: "100dvh", background: "#f6f7fb" }}>
-      <div style={{ width: "100%", height: "100%", background: "white", display: "flex", flexDirection: "column" }}>
+    <div className="page">
+      <div className="phone">
+        <div className="topbar">
+          <div className="brand">upmoney</div>
+          <div className="dot" />
+        </div>
+
         <div
           ref={chatRef}
-          style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: optionsHeight + 20 }}
+          className="chat"
+          style={{ paddingBottom: optionsHeight + 20 }}
         >
           {messages.map((m, i) => (
             <div
               key={i}
-              style={{
-                display: "flex",
-                justifyContent: m.from === "user" ? "flex-end" : "flex-start",
-                marginBottom: 10,
-              }}
+              className={`row ${m.from === "user" ? "rowUser" : "rowBot"}`}
             >
-              <div
-                style={{
-                  maxWidth: "86%",
-                  padding: "10px 12px",
-                  borderRadius: 16,
-                  background: m.from === "user" ? "#2563eb" : "#fff",
-                  color: m.from === "user" ? "#fff" : "#111",
-                }}
-              >
-                {m.text}
+              <div className={`bubble ${m.from}`}>
+                <span>{m.text}</span>
               </div>
             </div>
           ))}
-          {typing && <div>digitando•••</div>}
+          {typing && <div className="typing">digitando•••</div>}
         </div>
 
+        {showEmailInput && (
+          <div ref={optionsRef} className="panel">
+            <div className="emailBox">
+              <input
+                className="emailInput"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="seuemail@exemplo.com"
+                inputMode="email"
+                autoComplete="email"
+              />
+              <button className="primaryBtn" onClick={handleEmailContinue}>
+                Continuar
+              </button>
+            </div>
+            <div className="hint">
+              Usaremos seu e-mail para salvar e atualizar seu questionário.
+            </div>
+          </div>
+        )}
+
         {showOptions && (
-          <div ref={optionsRef} style={{ padding: 12, borderTop: "1px solid #eee" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-              {FLOW[step].options.map((opt) => (
+          <div ref={optionsRef} className="panel">
+            <div className="options">
+              {currentStep.options.map((opt) => (
                 <button
                   key={opt}
                   onClick={() => handleOptionClick(opt)}
-                  style={{ padding: "12px 14px", borderRadius: 999, cursor: "pointer" }}
+                  className={/^https?:\/\//i.test(opt) ? "linkBtn" : "pillBtn"}
                 >
                   {opt}
                 </button>
