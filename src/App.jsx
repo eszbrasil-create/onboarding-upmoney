@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { saveOnboarding } from "./services/onboardingService";
+import { saveOnboardingByEmail } from "./services/onboardingService";
 
-/* ====== FLOW (inalterado) ====== */
+/* ====== FLOW ====== */
 const FLOW = [
   {
     id: "welcome",
@@ -22,7 +22,11 @@ const FLOW = [
   {
     id: "alreadyInvest",
     bot: "Hoje você já investe?",
-    options: ["Não, ainda não", "Sim, comecei recentemente", "Sim, já invisto há um tempo"],
+    options: [
+      "Não, ainda não",
+      "Sim, comecei recentemente",
+      "Sim, já invisto há um tempo",
+    ],
   },
   {
     id: "blocker",
@@ -37,57 +41,119 @@ const FLOW = [
   {
     id: "whereInvest",
     bot: "Onde você já investe hoje?",
-    options: ["Poupança / Conta remunerada", "Tesouro / Renda fixa", "Ações / FIIs", "Cripto", "Um pouco de tudo"],
+    options: [
+      "Poupança / Conta remunerada",
+      "Tesouro / Renda fixa",
+      "Ações / FIIs",
+      "Cripto",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "invested",
     bot: "Hoje, quanto você já tem investido (aprox.)?",
-    options: ["Nada ainda", "Até R$ 1.000", "R$ 1.000 – R$ 5.000", "R$ 5.000 – R$ 20.000", "R$ 20.000 – R$ 50.000", "Acima de R$ 50.000"],
+    options: [
+      "Nada ainda",
+      "Até R$ 1.000",
+      "R$ 1.000 – R$ 5.000",
+      "R$ 5.000 – R$ 20.000",
+      "R$ 20.000 – R$ 50.000",
+      "Acima de R$ 50.000",
+    ],
   },
   {
     id: "income",
     bot: "Qual é sua renda mensal aproximada?",
-    options: ["Até R$ 1.500", "R$ 1.500 – R$ 3.000", "R$ 3.000 – R$ 6.000", "R$ 6.000 – R$ 10.000", "Acima de R$ 10.000", "Prefiro não informar"],
+    options: [
+      "Até R$ 1.500",
+      "R$ 1.500 – R$ 3.000",
+      "R$ 3.000 – R$ 6.000",
+      "R$ 6.000 – R$ 10.000",
+      "Acima de R$ 10.000",
+      "Prefiro não informar",
+    ],
   },
   {
     id: "monthly",
     bot: "E por mês, quanto você consegue investir (aprox.)?",
-    options: ["R$ 0 por enquanto", "Até R$ 100", "R$ 100 – R$ 300", "R$ 300 – R$ 800", "Acima de R$ 800"],
+    options: [
+      "R$ 0 por enquanto",
+      "Até R$ 100",
+      "R$ 100 – R$ 300",
+      "R$ 300 – R$ 800",
+      "Acima de R$ 800",
+    ],
   },
   {
     id: "time",
     bot: "Em quanto tempo você quer começar a ver resultados?",
-    options: ["1–3 meses", "3–12 meses", "1–3 anos", "Sem pressa, quero consistência"],
+    options: [
+      "1–3 meses",
+      "3–12 meses",
+      "1–3 anos",
+      "Sem pressa, quero consistência",
+    ],
   },
   {
     id: "risk",
     bot: "E qual frase combina mais com você?",
-    options: ["Prefiro segurança total", "Aceito um pouco de risco pra crescer mais", "Topo mais risco por ganhos maiores", "Ainda não sei"],
+    options: [
+      "Prefiro segurança total",
+      "Aceito um pouco de risco pra crescer mais",
+      "Topo mais risco por ganhos maiores",
+      "Ainda não sei",
+    ],
   },
   {
     id: "dividends",
     bot: "Dividendos são um objetivo pra você?",
-    options: ["Sim, é meu foco principal", "Quero, mas primeiro preciso organizar tudo", "Prefiro crescimento do patrimônio", "Ainda não sei"],
+    options: [
+      "Sim, é meu foco principal",
+      "Quero, mas primeiro preciso organizar tudo",
+      "Prefiro crescimento do patrimônio",
+      "Ainda não sei",
+    ],
   },
   {
     id: "firstDividendEmotion",
     bot: "Se você recebesse seu primeiro dividendo, qual valor já te deixaria feliz?",
-    options: ["Qualquer valor, só pra começar", "R$ 10 – R$ 50", "R$ 50 – R$ 200", "R$ 200+"],
+    options: [
+      "Qualquer valor, só pra começar",
+      "R$ 10 – R$ 50",
+      "R$ 50 – R$ 200",
+      "R$ 200+",
+    ],
   },
   {
     id: "expenseControl",
     bot: "Hoje você faz algum controle das suas despesas?",
-    options: ["Não controlo", "Anoto em papel", "Uso planilha", "Uso algum app", "Já controlo bem"],
+    options: [
+      "Não controlo",
+      "Anoto em papel",
+      "Uso planilha",
+      "Uso algum app",
+      "Já controlo bem",
+    ],
   },
   {
     id: "coaching",
     bot: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
-    options: ["Sim, gosto de acompanhamento passo a passo", "Prefiro aprender sozinho(a)", "Depende do momento", "Nunca tive, mas teria interesse"],
+    options: [
+      "Sim, gosto de acompanhamento passo a passo",
+      "Prefiro aprender sozinho(a)",
+      "Depende do momento",
+      "Nunca tive, mas teria interesse",
+    ],
   },
   {
     id: "learning",
     bot: "E você prefere aprender como?",
-    options: ["Passo a passo bem simples", "Resumo rápido + ação prática", "Explicação completa", "Um pouco de tudo"],
+    options: [
+      "Passo a passo bem simples",
+      "Resumo rápido + ação prática",
+      "Explicação completa",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "done",
@@ -97,6 +163,12 @@ const FLOW = [
 ];
 
 export default function App() {
+  // EMAIL FIRST
+  const [email, setEmail] = useState("");
+  const [emailOk, setEmailOk] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
+
+  // CHAT
   const [messages, setMessages] = useState([]);
   const [step, setStep] = useState(0);
   const [typing, setTyping] = useState(false);
@@ -107,59 +179,15 @@ export default function App() {
   const optionsRef = useRef(null);
   const didInit = useRef(false);
 
-  /* ====== 🔊 AUDIO CONTEXT ====== */
-  const audioCtxRef = useRef(null);
-  const soundEnabledRef = useRef(false);
-
-  function playPop() {
-    if (!soundEnabledRef.current) return;
-    try {
-      const ctx = audioCtxRef.current;
-      if (!ctx) return;
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.value = 880;
-
-      gain.gain.setValueAtTime(0.04, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.05);
-    } catch {}
-  }
-
-  /* ====== ✅ SAVE ====== */
-  async function handleFinishSave(finalAnswers) {
-    try {
-      await saveOnboarding(finalAnswers);
-    } catch (e) {
-      console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
-      try {
-        localStorage.setItem(
-          "onboarding_backup_answers",
-          JSON.stringify({
-            savedAt: new Date().toISOString(),
-            answers: finalAnswers,
-          })
-        );
-      } catch {}
-    }
-  }
-
-  /* ====== INIT ====== */
+  // init flow after email
   useEffect(() => {
+    if (!emailOk) return;
     if (didInit.current) return;
     didInit.current = true;
     pushBot(FLOW[0].bot);
-  }, []);
+  }, [emailOk]);
 
-  /* ====== OPTIONS HEIGHT ====== */
+  // options height
   useEffect(() => {
     if (!optionsRef.current) return;
     const el = optionsRef.current;
@@ -183,34 +211,50 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, typing, messages.length]);
 
-  /* ====== SCROLL ====== */
+  // scroll
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing, optionsHeight]);
 
-  /* ====== HELPERS ====== */
   function pushBot(text) {
     setTyping(true);
     setTimeout(() => {
       setMessages((prev) => [...prev, { from: "bot", text }]);
-      playPop();
       setTyping(false);
-    }, 650);
+    }, 450);
   }
 
   function pushUser(text) {
-    if (navigator.vibrate) navigator.vibrate(12);
     setMessages((prev) => [...prev, { from: "user", text }]);
   }
 
-  function handleOptionClick(opt) {
-    // 🔓 ativa som após primeira interação
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      soundEnabledRef.current = true;
+  async function handleFinishSave(finalAnswers) {
+    try {
+      await saveOnboardingByEmail({ email, answers: finalAnswers });
+    } catch (e) {
+      console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
+      try {
+        localStorage.setItem(
+          "onboarding_backup_answers",
+          JSON.stringify({ savedAt: new Date().toISOString(), email, answers: finalAnswers })
+        );
+      } catch {}
     }
+  }
 
+  function startWithEmail() {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !clean.includes("@")) {
+      setEmailMsg("Digite um e-mail válido.");
+      return;
+    }
+    setEmail(clean);
+    setEmailMsg("");
+    setEmailOk(true);
+  }
+
+  function handleOptionClick(opt) {
     if (opt === "Recomeçar") {
       setMessages([]);
       setStep(0);
@@ -225,12 +269,9 @@ export default function App() {
 
     const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
 
-    if (currentId === "done") {
-      handleFinishSave(nextAnswers);
-    }
-
-    // Link externo (Calendly)
+    // Se clicou no link: salva e abre
     if (/^https?:\/\//i.test(opt)) {
+      handleFinishSave(nextAnswers);
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
     }
@@ -244,40 +285,43 @@ export default function App() {
     }
 
     setStep(nextStep);
-    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 220);
+    if (FLOW[nextStep]) setTimeout(() => pushBot(FLOW[nextStep].bot), 180);
+  }
+
+  // tela do email
+  if (!emailOk) {
+    return (
+      <div className="page">
+        <div className="cardAuth">
+          <div className="title">upmoney</div>
+          <div className="subtitle">Para começar, digite seu e-mail</div>
+
+          <input
+            className="input"
+            placeholder="Digite seu e-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <button className="btn" onClick={startWithEmail}>
+            Continuar
+          </button>
+
+          {!!emailMsg && <div className="msg">{emailMsg}</div>}
+        </div>
+      </div>
+    );
   }
 
   const lastMsg = messages[messages.length - 1];
   const showOptions = !typing && FLOW[step]?.options && lastMsg?.from === "bot";
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100dvh",
-        background: "#f6f7fb",
-        overflowX: "hidden", // ✅ trava vazamento horizontal
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          background: "white",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden", // ✅ evita “vazar” pelo container
-        }}
-      >
+    <div style={{ width: "100vw", height: "100dvh", background: "#f6f7fb" }}>
+      <div style={{ width: "100%", height: "100%", background: "white", display: "flex", flexDirection: "column" }}>
         <div
           ref={chatRef}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden", // ✅ não deixa rolagem horizontal
-            padding: 16,
-            paddingBottom: optionsHeight + 20,
-          }}
+          style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: optionsHeight + 20 }}
         >
           {messages.map((m, i) => (
             <div
@@ -295,10 +339,6 @@ export default function App() {
                   borderRadius: 16,
                   background: m.from === "user" ? "#2563eb" : "#fff",
                   color: m.from === "user" ? "#fff" : "#111",
-
-                  // ✅ QUEBRA textos longos (URLs)
-                  overflowWrap: "anywhere",
-                  wordBreak: "break-word",
                 }}
               >
                 {m.text}
@@ -310,31 +350,12 @@ export default function App() {
 
         {showOptions && (
           <div ref={optionsRef} style={{ padding: 12, borderTop: "1px solid #eee" }}>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                justifyContent: "center",
-                maxWidth: "100%",
-              }}
-            >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
               {FLOW[step].options.map((opt) => (
                 <button
                   key={opt}
                   onClick={() => handleOptionClick(opt)}
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 999,
-                    cursor: "pointer",
-
-                    // ✅ evita o botão estourar pra direita com URL
-                    maxWidth: "100%",
-                    whiteSpace: "normal",
-                    textAlign: "center",
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                  }}
+                  style={{ padding: "12px 14px", borderRadius: 999, cursor: "pointer" }}
                 >
                   {opt}
                 </button>
