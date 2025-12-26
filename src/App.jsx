@@ -114,6 +114,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // mede altura real do bloco de opções para não encobrir o chat
   useEffect(() => {
     if (!optionsRef.current) return;
     const el = optionsRef.current;
@@ -139,6 +140,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, typing, messages.length]);
 
+  // auto-scroll
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -147,13 +149,19 @@ export default function App() {
   function pushBot(text) {
     setTyping(true);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { from: "bot", text }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), from: "bot", text },
+      ]);
       setTyping(false);
     }, 650);
   }
 
   function pushUser(text) {
-    setMessages((prev) => [...prev, { from: "user", text }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), from: "user", text },
+    ]);
   }
 
   function resetFlow() {
@@ -189,7 +197,6 @@ export default function App() {
     }
 
     setStep(next);
-
     if (FLOW[next]) setTimeout(() => pushBot(FLOW[next].bot), 220);
   }
 
@@ -198,23 +205,62 @@ export default function App() {
 
   return (
     <>
-      {/* ✅ “reset” mínimo: garante que a tela ocupa 100% no mobile e sem sobras laterais */}
+      {/* CSS mínimo + animações */}
       <style>{`
         * { box-sizing: border-box; }
         html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; }
         body { overflow: hidden; background: #f6f7fb; }
         .safeBottom { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+        /* ===== Micro animações ===== */
+        @keyframes msgIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes panelIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dot {
+          0%, 80%, 100% { transform: translateY(0); opacity: .4; }
+          40% { transform: translateY(-3px); opacity: 1; }
+        }
+
+        .bubble {
+          animation: msgIn 180ms ease-out both;
+          will-change: transform, opacity;
+        }
+        .optionsPanel {
+          animation: panelIn 200ms ease-out both;
+          will-change: transform, opacity;
+        }
+        .btn {
+          transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(0.98); }
+
+        .typingDots span {
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          margin-left: 4px;
+          border-radius: 999px;
+          background: #9ca3af;
+          animation: dot 900ms infinite ease-in-out;
+        }
+        .typingDots span:nth-child(2) { animation-delay: 120ms; }
+        .typingDots span:nth-child(3) { animation-delay: 240ms; }
+
+        /* Acessibilidade: se o usuário preferir menos movimento */
+        @media (prefers-reduced-motion: reduce) {
+          .bubble, .optionsPanel { animation: none !important; }
+          .btn { transition: none !important; }
+          .typingDots span { animation: none !important; }
+        }
       `}</style>
 
-      {/* ✅ Wrapper full width/height (sem centralizar com padding) */}
-      <div
-        style={{
-          width: "100vw",
-          height: "100dvh",
-          background: "#f6f7fb",
-        }}
-      >
-        {/* ✅ “Card” vira tela cheia no mobile: width 100%, maxWidth none */}
+      <div style={{ width: "100vw", height: "100dvh", background: "#f6f7fb" }}>
         <div
           style={{
             width: "100%",
@@ -236,12 +282,13 @@ export default function App() {
               WebkitOverflowScrolling: "touch",
               padding: 16,
               paddingBottom: optionsHeight + 18,
-              background: "linear-gradient(180deg, rgba(246,247,251,1) 0%, rgba(255,255,255,1) 100%)",
+              background:
+                "linear-gradient(180deg, rgba(246,247,251,1) 0%, rgba(255,255,255,1) 100%)",
             }}
           >
-            {messages.map((m, i) => (
+            {messages.map((m) => (
               <div
-                key={i}
+                key={m.id}
                 style={{
                   display: "flex",
                   justifyContent: m.from === "user" ? "flex-end" : "flex-start",
@@ -249,14 +296,21 @@ export default function App() {
                 }}
               >
                 <div
+                  className="bubble"
                   style={{
                     maxWidth: "86%",
                     padding: "10px 12px",
                     borderRadius: 16,
                     background: m.from === "user" ? "#2563eb" : "white",
                     color: m.from === "user" ? "white" : "#111827",
-                    border: m.from === "user" ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(0,0,0,0.08)",
-                    boxShadow: m.from === "user" ? "0 8px 18px rgba(37,99,235,0.14)" : "0 8px 18px rgba(0,0,0,0.04)",
+                    border:
+                      m.from === "user"
+                        ? "1px solid rgba(37,99,235,0.25)"
+                        : "1px solid rgba(0,0,0,0.08)",
+                    boxShadow:
+                      m.from === "user"
+                        ? "0 8px 18px rgba(37,99,235,0.14)"
+                        : "0 8px 18px rgba(0,0,0,0.04)",
                     fontSize: 15,
                     lineHeight: 1.35,
                   }}
@@ -269,6 +323,7 @@ export default function App() {
             {typing && (
               <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
                 <div
+                  className="bubble"
                   style={{
                     padding: "10px 12px",
                     borderRadius: 16,
@@ -276,15 +331,23 @@ export default function App() {
                     background: "white",
                     border: "1px solid rgba(0,0,0,0.08)",
                     color: "#6b7280",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
-                  digitando<span style={{ marginLeft: 6 }}>•••</span>
+                  digitando
+                  <span className="typingDots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* OPTIONS fixas embaixo */}
+          {/* OPTIONS */}
           <div
             ref={optionsRef}
             className="safeBottom"
@@ -299,10 +362,19 @@ export default function App() {
             }}
           >
             {showOptions && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+              <div
+                className="optionsPanel"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  justifyContent: "center",
+                }}
+              >
                 {currentStep.options.map((opt) => (
                   <button
                     key={opt}
+                    className="btn"
                     onClick={() => handleOptionClick(opt)}
                     style={{
                       padding: "12px 14px",
