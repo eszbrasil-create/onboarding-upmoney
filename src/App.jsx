@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { saveOnboarding } from "./services/onboardingService";
 
@@ -200,13 +200,10 @@ export default function App() {
     } catch {}
   }
 
-  /* ====== ✅ SAVE (Opção A) ====== */
+  /* ====== ✅ SAVE ====== */
   async function handleFinishSave(finalAnswers) {
-    // segurança: tenta salvar e, se falhar, ao menos guarda local para você recuperar
     try {
       await saveOnboarding(finalAnswers);
-      // Se quiser, depois a gente coloca um feedback visual "✅ Salvo"
-      // por enquanto, minimalista.
     } catch (e) {
       console.warn("[Onboarding] Não salvou no Supabase:", e?.message || e);
       try {
@@ -290,6 +287,19 @@ export default function App() {
       return;
     }
 
+    const currentId = FLOW[step]?.id;
+    const nextStep = step + 1;
+
+    // monta respostas finais já com a resposta atual (se tiver id)
+    const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
+
+    // ✅ IMPORTANTE:
+    // Se estiver no step "done" e clicar no link, antes você retornava e não salvava nada.
+    // Agora: salva primeiro e depois abre o link.
+    if (currentId === "done") {
+      handleFinishSave(nextAnswers);
+    }
+
     // Link externo (Calendly)
     if (/^https?:\/\//i.test(opt)) {
       window.open(opt, "_blank", "noopener,noreferrer");
@@ -297,12 +307,6 @@ export default function App() {
     }
 
     pushUser(opt);
-
-    const currentId = FLOW[step]?.id;
-    const nextStep = step + 1;
-
-    // monta respostas finais já com a resposta atual
-    const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
 
     if (currentId) {
       setAnswers(nextAnswers);
