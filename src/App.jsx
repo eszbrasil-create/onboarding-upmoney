@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-/**
- * ✅ Seu código como base
- * ✅ Step final com link tratado como "ação" (abrir Calendly)
- * ✅ Não grava o link como resposta do usuário
- */
-
-const CALENDLY_URL = "https://calendly.com/upmoney/meu-primeiro-dividendo";
-
 const FLOW = [
   {
     id: "welcome",
@@ -78,13 +70,7 @@ const FLOW = [
   {
     id: "monthly",
     bot: "E por mês, quanto você consegue investir (aprox.)?",
-    options: [
-      "R$ 0 por enquanto",
-      "Até R$ 100",
-      "R$ 100 – R$ 300",
-      "R$ 300 – R$ 800",
-      "Acima de R$ 800",
-    ],
+    options: ["R$ 0 por enquanto", "Até R$ 100", "R$ 100 – R$ 300", "R$ 300 – R$ 800", "Acima de R$ 800"],
   },
   {
     id: "time",
@@ -136,12 +122,10 @@ const FLOW = [
     bot: "E você prefere aprender como?",
     options: ["Passo a passo bem simples", "Resumo rápido + ação prática", "Explicação completa", "Um pouco de tudo"],
   },
-
-  // ✅ Step final: opção "Agendar agora" (ação) + Recomeçar
   {
     id: "done",
-    bot: "Perfeito ✅ Já entendi seu perfil.\nAgora clique no botão abaixo para agendar seu primeiro acompanhamento:",
-    options: ["📅 Agendar agora", "Recomeçar"],
+    bot: "Perfeito ✅ Já entendi seu perfil. Agora voce pode clicar no link abaixo e agendar seu primeiro acompnhamento.",
+    options: ["https://calendly.com/upmoney/meu-primeiro-dividendo", "Recomeçar"],
   },
 ];
 
@@ -160,6 +144,7 @@ export default function App() {
     if (didInit.current) return;
     didInit.current = true;
     pushBot(FLOW[0].bot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -188,18 +173,14 @@ export default function App() {
   }
 
   function handleOptionClick(opt) {
-    // ✅ ação: abrir Calendly
-    if (opt === "📅 Agendar agora") {
-      // não grava como resposta, não avança step
-      window.open(CALENDLY_URL, "_blank", "noopener,noreferrer");
-      // opcional: mostrar mensagem no chat confirmando
-      pushUser("Quero agendar agora");
-      pushBot("Perfeito! ✅ Abri o link de agendamento pra você. Assim que escolher o horário, me avise no WhatsApp.");
+    if (opt === "Recomeçar") {
+      resetFlow();
       return;
     }
 
-    if (opt === "Recomeçar") {
-      resetFlow();
+    // se for link, abre em nova aba e não segue o fluxo
+    if (typeof opt === "string" && opt.startsWith("http")) {
+      window.open(opt, "_blank", "noopener,noreferrer");
       return;
     }
 
@@ -212,18 +193,10 @@ export default function App() {
     let next = step + 1;
 
     // regras de pulo (mantidas)
-    if (
-      FLOW[next]?.id === "blocker" &&
-      answers?.alreadyInvest &&
-      answers?.alreadyInvest !== "Não, ainda não"
-    ) {
+    if (FLOW[next]?.id === "blocker" && answers?.alreadyInvest && answers?.alreadyInvest !== "Não, ainda não") {
       next += 1;
     }
-
-    if (
-      FLOW[next]?.id === "whereInvest" &&
-      answers?.alreadyInvest === "Não, ainda não"
-    ) {
+    if (FLOW[next]?.id === "whereInvest" && answers?.alreadyInvest === "Não, ainda não") {
       next += 1;
     }
 
@@ -240,11 +213,13 @@ export default function App() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh", // ✅ melhor no iOS
         background: "#f6f7fb",
         display: "flex",
         justifyContent: "center",
-        padding: 16,
+        padding: 12,
+        boxSizing: "border-box",
+        overflowX: "hidden", // ✅ evita scroll lateral
       }}
     >
       <div
@@ -257,15 +232,19 @@ export default function App() {
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           display: "flex",
           flexDirection: "column",
+          minHeight: "100dvh", // ✅ o card ocupa a tela no mobile
+          boxSizing: "border-box",
         }}
       >
-        {/* CHAT */}
+        {/* CHAT (flex 1) */}
         <div
           ref={chatRef}
           style={{
             padding: 16,
-            height: "75vh",
+            flex: 1, // ✅ em vez de 75vh
             overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            boxSizing: "border-box",
           }}
         >
           {messages.map((m, i) => (
@@ -287,25 +266,42 @@ export default function App() {
                   border: m.from === "user" ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(0,0,0,0.08)",
                 }}
               >
-                {String(m.text).split("\n").map((line, idx) => (
-                  <div key={idx}>{line}</div>
-                ))}
+                {m.text}
               </div>
             </div>
           ))}
-          {typing && <div style={{ color: "#6b7280", padding: "6px 2px" }}>digitando•••</div>}
+
+          {typing && (
+            <div style={{ display: "flex", justifyContent: "flex-start" }}>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 16,
+                  background: "white",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  color: "#6b7280",
+                }}
+              >
+                digitando•••
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* OPTIONS (✅ sticky embaixo, sem encobrir) */}
         {showOptions && (
           <div
             style={{
-              padding: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              justifyContent: "center",
-              borderTop: "1px solid rgba(0,0,0,0.06)",
+              position: "sticky",
+              bottom: 0,
               background: "#fff",
+              borderTop: "1px solid rgba(0,0,0,0.06)",
+              padding: 12,
+              paddingBottom: "calc(12px + env(safe-area-inset-bottom))", // ✅ iPhone
+              display: "grid",
+              gridTemplateColumns: "1fr", // ✅ uma coluna no mobile (sem overflow)
+              gap: 10,
+              boxSizing: "border-box",
             }}
           >
             {currentStep.options.map((opt) => (
@@ -313,13 +309,14 @@ export default function App() {
                 key={opt}
                 onClick={() => handleOptionClick(opt)}
                 style={{
-                  padding: "10px 12px",
+                  width: "100%",
+                  padding: "12px 14px",
                   borderRadius: 999,
                   border: "1px solid rgba(0,0,0,0.12)",
-                  background: opt === "📅 Agendar agora" ? "#2563eb" : "white",
-                  color: opt === "📅 Agendar agora" ? "white" : "#111827",
+                  background: "white",
                   cursor: "pointer",
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  fontSize: 14,
                 }}
               >
                 {opt}
