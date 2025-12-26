@@ -35,37 +35,17 @@ const FLOW = [
   {
     id: "whereInvest",
     bot: "Onde você já investe hoje?",
-    options: [
-      "Poupança / Conta remunerada",
-      "Tesouro / Renda fixa",
-      "Ações / FIIs",
-      "Cripto",
-      "Um pouco de tudo",
-    ],
+    options: ["Poupança / Conta remunerada", "Tesouro / Renda fixa", "Ações / FIIs", "Cripto", "Um pouco de tudo"],
   },
   {
     id: "invested",
     bot: "Hoje, quanto você já tem investido (aprox.)?",
-    options: [
-      "Nada ainda",
-      "Até R$ 1.000",
-      "R$ 1.000 – R$ 5.000",
-      "R$ 5.000 – R$ 20.000",
-      "R$ 20.000 – R$ 50.000",
-      "Acima de R$ 50.000",
-    ],
+    options: ["Nada ainda", "Até R$ 1.000", "R$ 1.000 – R$ 5.000", "R$ 5.000 – R$ 20.000", "R$ 20.000 – R$ 50.000", "Acima de R$ 50.000"],
   },
   {
     id: "income",
     bot: "Qual é sua renda mensal aproximada?",
-    options: [
-      "Até R$ 1.500",
-      "R$ 1.500 – R$ 3.000",
-      "R$ 3.000 – R$ 6.000",
-      "R$ 6.000 – R$ 10.000",
-      "Acima de R$ 10.000",
-      "Prefiro não informar",
-    ],
+    options: ["Até R$ 1.500", "R$ 1.500 – R$ 3.000", "R$ 3.000 – R$ 6.000", "R$ 6.000 – R$ 10.000", "Acima de R$ 10.000", "Prefiro não informar"],
   },
   {
     id: "monthly",
@@ -80,22 +60,12 @@ const FLOW = [
   {
     id: "risk",
     bot: "E qual frase combina mais com você?",
-    options: [
-      "Prefiro segurança total",
-      "Aceito um pouco de risco pra crescer mais",
-      "Topo mais risco por ganhos maiores",
-      "Ainda não sei",
-    ],
+    options: ["Prefiro segurança total", "Aceito um pouco de risco pra crescer mais", "Topo mais risco por ganhos maiores", "Ainda não sei"],
   },
   {
     id: "dividends",
     bot: "Dividendos são um objetivo pra você?",
-    options: [
-      "Sim, é meu foco principal",
-      "Quero, mas primeiro preciso organizar tudo",
-      "Prefiro crescimento do patrimônio",
-      "Ainda não sei",
-    ],
+    options: ["Sim, é meu foco principal", "Quero, mas primeiro preciso organizar tudo", "Prefiro crescimento do patrimônio", "Ainda não sei"],
   },
   {
     id: "firstDividendEmotion",
@@ -110,12 +80,7 @@ const FLOW = [
   {
     id: "coaching",
     bot: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
-    options: [
-      "Sim, gosto de acompanhamento passo a passo",
-      "Prefiro aprender sozinho(a)",
-      "Depende do momento",
-      "Nunca tive, mas teria interesse",
-    ],
+    options: ["Sim, gosto de acompanhamento passo a passo", "Prefiro aprender sozinho(a)", "Depende do momento", "Nunca tive, mas teria interesse"],
   },
   {
     id: "learning",
@@ -124,7 +89,7 @@ const FLOW = [
   },
   {
     id: "done",
-    bot: "Perfeito ✅ Já entendi seu perfil. Agora voce pode clicar no link abaixo e agendar seu primeiro acompnhamento.",
+    bot: "Perfeito ✅ Já entendi seu perfil. Agora você pode clicar no link abaixo e agendar seu primeiro acompanhamento.",
     options: ["https://calendly.com/upmoney/meu-primeiro-dividendo", "Recomeçar"],
   },
 ];
@@ -134,8 +99,10 @@ export default function App() {
   const [step, setStep] = useState(0);
   const [typing, setTyping] = useState(false);
   const [answers, setAnswers] = useState({});
+  const [optionsHeight, setOptionsHeight] = useState(120);
 
   const chatRef = useRef(null);
+  const optionsRef = useRef(null);
   const didInit = useRef(false);
 
   const currentStep = useMemo(() => FLOW[step], [step]);
@@ -147,10 +114,38 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ mede altura real do bloco de opções (para nunca ficar encoberto no mobile)
+  useEffect(() => {
+    if (!optionsRef.current) return;
+
+    const el = optionsRef.current;
+
+    const update = () => {
+      const h = el.getBoundingClientRect().height;
+      if (h && Math.abs(h - optionsHeight) > 4) setOptionsHeight(h);
+    };
+
+    update();
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, typing, messages.length]);
+
+  // ✅ auto-scroll mantendo a última mensagem visível + espaço das opções
   useEffect(() => {
     if (!chatRef.current) return;
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages, typing]);
+  }, [messages, typing, optionsHeight]);
 
   function pushBot(text) {
     setTyping(true);
@@ -178,8 +173,8 @@ export default function App() {
       return;
     }
 
-    // se for link, abre em nova aba e não segue o fluxo
-    if (typeof opt === "string" && opt.startsWith("http")) {
+    // ✅ se for link (Calendly), abre em nova aba
+    if (/^https?:\/\//i.test(opt)) {
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
     }
@@ -196,6 +191,7 @@ export default function App() {
     if (FLOW[next]?.id === "blocker" && answers?.alreadyInvest && answers?.alreadyInvest !== "Não, ainda não") {
       next += 1;
     }
+
     if (FLOW[next]?.id === "whereInvest" && answers?.alreadyInvest === "Não, ainda não") {
       next += 1;
     }
@@ -211,120 +207,140 @@ export default function App() {
   const showOptions = !typing && currentStep?.options?.length && lastMsg?.from === "bot";
 
   return (
-    <div
-      style={{
-        minHeight: "100dvh", // ✅ melhor no iOS
-        background: "#f6f7fb",
-        display: "flex",
-        justifyContent: "center",
-        padding: 12,
-        boxSizing: "border-box",
-        overflowX: "hidden", // ✅ evita scroll lateral
-      }}
-    >
+    <>
+      {/* ✅ CSS mínimo pra garantir 100% mobile-friendly sem mexer no App.css */}
+      <style>{`
+        html, body, #root { height: 100%; }
+        body { margin: 0; overflow: hidden; }
+        /* iOS safe areas */
+        .safeBottom { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+      `}</style>
+
       <div
         style={{
-          width: "100%",
-          maxWidth: 520,
-          background: "white",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          height: "100dvh", // ✅ viewport dinâmico real no mobile
+          background: "#f6f7fb",
           display: "flex",
-          flexDirection: "column",
-          minHeight: "100dvh", // ✅ o card ocupa a tela no mobile
-          boxSizing: "border-box",
+          justifyContent: "center",
+          padding: 0,
         }}
       >
-        {/* CHAT (flex 1) */}
         <div
-          ref={chatRef}
           style={{
-            padding: 16,
-            flex: 1, // ✅ em vez de 75vh
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            boxSizing: "border-box",
+            width: "100%",
+            maxWidth: 520,
+            height: "100%",
+            background: "white",
+            borderRadius: 0, // ✅ melhor no mobile (full screen)
+            overflow: "hidden",
+            boxShadow: "none",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                justifyContent: m.from === "user" ? "flex-end" : "flex-start",
-                marginBottom: 10,
-              }}
-            >
-              <div
-                style={{
-                  maxWidth: "84%",
-                  padding: "10px 12px",
-                  borderRadius: 16,
-                  background: m.from === "user" ? "#2563eb" : "white",
-                  color: m.from === "user" ? "white" : "#111827",
-                  border: m.from === "user" ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(0,0,0,0.08)",
-                }}
-              >
-                {m.text}
-              </div>
-            </div>
-          ))}
-
-          {typing && (
-            <div style={{ display: "flex", justifyContent: "flex-start" }}>
-              <div
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 16,
-                  background: "white",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  color: "#6b7280",
-                }}
-              >
-                digitando•••
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* OPTIONS (✅ sticky embaixo, sem encobrir) */}
-        {showOptions && (
+          {/* CHAT (única área rolável) */}
           <div
+            ref={chatRef}
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              padding: 16,
+              // ✅ deixa espaço pra área de botões embaixo (nunca encobre)
+              paddingBottom: optionsHeight + 18,
+              background: "linear-gradient(180deg, rgba(246,247,251,1) 0%, rgba(255,255,255,1) 100%)",
+            }}
+          >
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  justifyContent: m.from === "user" ? "flex-end" : "flex-start",
+                  marginBottom: 10,
+                }}
+              >
+                <div
+                  style={{
+                    maxWidth: "86%",
+                    padding: "10px 12px",
+                    borderRadius: 16,
+                    background: m.from === "user" ? "#2563eb" : "white",
+                    color: m.from === "user" ? "white" : "#111827",
+                    border: m.from === "user" ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(0,0,0,0.08)",
+                    boxShadow: m.from === "user" ? "0 8px 18px rgba(37,99,235,0.14)" : "0 8px 18px rgba(0,0,0,0.04)",
+                    fontSize: 15,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {m.text}
+                </div>
+              </div>
+            ))}
+
+            {typing && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 16,
+                    fontSize: 14,
+                    background: "white",
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    color: "#6b7280",
+                  }}
+                >
+                  digitando<span style={{ marginLeft: 6 }}>•••</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* OPTIONS (fixas embaixo, sem “encobrir”) */}
+          <div
+            ref={optionsRef}
+            className="safeBottom"
             style={{
               position: "sticky",
               bottom: 0,
-              background: "#fff",
+              background: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(10px)",
               borderTop: "1px solid rgba(0,0,0,0.06)",
               padding: 12,
-              paddingBottom: "calc(12px + env(safe-area-inset-bottom))", // ✅ iPhone
-              display: "grid",
-              gridTemplateColumns: "1fr", // ✅ uma coluna no mobile (sem overflow)
-              gap: 10,
-              boxSizing: "border-box",
             }}
           >
-            {currentStep.options.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => handleOptionClick(opt)}
+            {showOptions && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(0,0,0,0.12)",
-                  background: "white",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  fontSize: 14,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  justifyContent: "center",
                 }}
               >
-                {opt}
-              </button>
-            ))}
+                {currentStep.options.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => handleOptionClick(opt)}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(0,0,0,0.12)",
+                      background: "white",
+                      cursor: "pointer",
+                      fontWeight: 650,
+                      fontSize: 14,
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
