@@ -4,7 +4,11 @@ import { saveOnboarding } from "./services/onboardingService";
 
 /* ====== FLOW (inalterado + email como primeiro passo) ====== */
 const FLOW = [
-  { id: "email", bot: "Para começar, digite seu e-mail 😊", type: "input_email" },
+  {
+    id: "email",
+    bot: "Para começar, digite seu e-mail 😊",
+    type: "input_email",
+  },
   {
     id: "welcome",
     bot: "Oi! 👋 Eu sou o upmoney, seu assistente de educação financeira. Vou te fazer algumas perguntas rápidas (leva menos de 1 minuto) pra entender seu momento.",
@@ -23,7 +27,11 @@ const FLOW = [
   {
     id: "alreadyInvest",
     bot: "Hoje você já investe?",
-    options: ["Não, ainda não", "Sim, comecei recentemente", "Sim, já invisto há um tempo"],
+    options: [
+      "Não, ainda não",
+      "Sim, comecei recentemente",
+      "Sim, já invisto há um tempo",
+    ],
   },
   {
     id: "blocker",
@@ -38,62 +46,127 @@ const FLOW = [
   {
     id: "whereInvest",
     bot: "Onde você já investe hoje?",
-    options: ["Poupança / Conta remunerada", "Tesouro / Renda fixa", "Ações / FIIs", "Cripto", "Um pouco de tudo"],
+    options: [
+      "Poupança / Conta remunerada",
+      "Tesouro / Renda fixa",
+      "Ações / FIIs",
+      "Cripto",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "invested",
     bot: "Hoje, quanto você já tem investido (aprox.)?",
-    options: ["Nada ainda", "Até R$ 1.000", "R$ 1.000 – R$ 5.000", "R$ 5.000 – R$ 20.000", "R$ 20.000 – R$ 50.000", "Acima de R$ 50.000"],
+    options: [
+      "Nada ainda",
+      "Até R$ 1.000",
+      "R$ 1.000 – R$ 5.000",
+      "R$ 5.000 – R$ 20.000",
+      "R$ 20.000 – R$ 50.000",
+      "Acima de R$ 50.000",
+    ],
   },
   {
     id: "income",
     bot: "Qual é sua renda mensal aproximada?",
-    options: ["Até R$ 1.500", "R$ 1.500 – R$ 3.000", "R$ 3.000 – R$ 6.000", "R$ 6.000 – R$ 10.000", "Acima de R$ 10.000", "Prefiro não informar"],
+    options: [
+      "Até R$ 1.500",
+      "R$ 1.500 – R$ 3.000",
+      "R$ 3.000 – R$ 6.000",
+      "R$ 6.000 – R$ 10.000",
+      "Acima de R$ 10.000",
+      "Prefiro não informar",
+    ],
   },
   {
     id: "monthly",
     bot: "E por mês, quanto você consegue investir (aprox.)?",
-    options: ["R$ 0 por enquanto", "Até R$ 100", "R$ 100 – R$ 300", "R$ 300 – R$ 800", "Acima de R$ 800"],
+    options: [
+      "R$ 0 por enquanto",
+      "Até R$ 100",
+      "R$ 100 – R$ 300",
+      "R$ 300 – R$ 800",
+      "Acima de R$ 800",
+    ],
   },
   {
     id: "time",
     bot: "Em quanto tempo você quer começar a ver resultados?",
-    options: ["1–3 meses", "3–12 meses", "1–3 anos", "Sem pressa, quero consistência"],
+    options: [
+      "1–3 meses",
+      "3–12 meses",
+      "1–3 anos",
+      "Sem pressa, quero consistência",
+    ],
   },
   {
     id: "risk",
     bot: "E qual frase combina mais com você?",
-    options: ["Prefiro segurança total", "Aceito um pouco de risco pra crescer mais", "Topo mais risco por ganhos maiores", "Ainda não sei"],
+    options: [
+      "Prefiro segurança total",
+      "Aceito um pouco de risco pra crescer mais",
+      "Topo mais risco por ganhos maiores",
+      "Ainda não sei",
+    ],
   },
   {
     id: "dividends",
     bot: "Dividendos são um objetivo pra você?",
-    options: ["Sim, é meu foco principal", "Quero, mas primeiro preciso organizar tudo", "Prefiro crescimento do patrimônio", "Ainda não sei"],
+    options: [
+      "Sim, é meu foco principal",
+      "Quero, mas primeiro preciso organizar tudo",
+      "Prefiro crescimento do patrimônio",
+      "Ainda não sei",
+    ],
   },
   {
     id: "firstDividendEmotion",
     bot: "Se você recebesse seu primeiro dividendo, qual valor já te deixaria feliz?",
-    options: ["Qualquer valor, só pra começar", "R$ 10 – R$ 50", "R$ 50 – R$ 200", "R$ 200+",],
+    options: [
+      "Qualquer valor, só pra começar",
+      "R$ 10 – R$ 50",
+      "R$ 50 – R$ 200",
+      "R$ 200+",
+    ],
   },
   {
     id: "expenseControl",
     bot: "Hoje você faz algum controle das suas despesas?",
-    options: ["Não controlo", "Anoto em papel", "Uso planilha", "Uso algum app", "Já controlo bem"],
+    options: [
+      "Não controlo",
+      "Anoto em papel",
+      "Uso planilha",
+      "Uso algum app",
+      "Já controlo bem",
+    ],
   },
   {
     id: "coaching",
     bot: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
-    options: ["Sim, gosto de acompanhamento passo a passo", "Prefiro aprender sozinho(a)", "Depende do momento", "Nunca tive, mas teria interesse"],
+    options: [
+      "Sim, gosto de acompanhamento passo a passo",
+      "Prefiro aprender sozinho(a)",
+      "Depende do momento",
+      "Nunca tive, mas teria interesse",
+    ],
   },
   {
     id: "learning",
     bot: "E você prefere aprender como?",
-    options: ["Passo a passo bem simples", "Resumo rápido + ação prática", "Explicação completa", "Um pouco de tudo"],
+    options: [
+      "Passo a passo bem simples",
+      "Resumo rápido + ação prática",
+      "Explicação completa",
+      "Um pouco de tudo",
+    ],
   },
   {
     id: "done",
     bot: "Perfeito ✅ Já entendi seu perfil. Agora você pode clicar no link abaixo e agendar seu primeiro acompanhamento.",
-    options: ["https://calendly.com/upmoney/meu-primeiro-dividendo", "Recomeçar"],
+    options: [
+      "https://calendly.com/upmoney/meu-primeiro-dividendo",
+      "Recomeçar",
+    ],
   },
 ];
 
@@ -112,7 +185,6 @@ export default function App() {
   const [answers, setAnswers] = useState({});
   const [optionsHeight, setOptionsHeight] = useState(0);
 
-  // email state (primeiro passo)
   const [emailInput, setEmailInput] = useState("");
   const [userEmail, setUserEmail] = useState(null);
 
@@ -120,13 +192,42 @@ export default function App() {
   const optionsRef = useRef(null);
   const didInit = useRef(false);
 
+  /* ====== ✅ iPhone keyboard fix: trava altura real disponível ====== */
+  useEffect(() => {
+    const vv = window.visualViewport;
+
+    const setAppHeight = () => {
+      const h = vv?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--app-h", `${h}px`);
+    };
+
+    setAppHeight();
+
+    if (vv) {
+      vv.addEventListener("resize", setAppHeight);
+      vv.addEventListener("scroll", setAppHeight);
+    }
+    window.addEventListener("resize", setAppHeight);
+    window.addEventListener("orientationchange", setAppHeight);
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener("resize", setAppHeight);
+        vv.removeEventListener("scroll", setAppHeight);
+      }
+      window.removeEventListener("resize", setAppHeight);
+      window.removeEventListener("orientationchange", setAppHeight);
+    };
+  }, []);
+
   /* ====== 🔊 AUDIO CONTEXT ====== */
   const audioCtxRef = useRef(null);
   const soundEnabledRef = useRef(false);
 
   function ensureAudioEnabled() {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
       soundEnabledRef.current = true;
     }
   }
@@ -181,7 +282,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ====== OPTIONS HEIGHT (para o chat não ficar escondido atrás) ====== */
+  /* ====== OPTIONS HEIGHT ====== */
   useEffect(() => {
     if (!optionsRef.current) return;
     const el = optionsRef.current;
@@ -212,7 +313,6 @@ export default function App() {
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing, optionsHeight]);
 
-  /* ====== HELPERS ====== */
   function pushBot(text) {
     setTyping(true);
     setTimeout(() => {
@@ -256,10 +356,14 @@ export default function App() {
     setUserEmail(clean);
     pushUser(clean);
 
-    // guarda no answers também (para ficar no JSON final)
     setAnswers((prev) => ({ ...prev, email: clean }));
 
     goNextStepAndAskBot();
+
+    // ✅ ajuda o iPhone a reposicionar depois do teclado
+    setTimeout(() => {
+      if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }, 50);
   }
 
   function handleOptionClick(opt) {
@@ -272,7 +376,6 @@ export default function App() {
 
     const currentId = FLOW[step]?.id;
 
-    // Link externo (Calendly): salva antes e depois abre
     if (/^https?:\/\//i.test(opt)) {
       const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
       handleFinishSave(nextAnswers);
@@ -287,7 +390,6 @@ export default function App() {
 
     if (currentId) setAnswers(nextAnswers);
 
-    // se o próximo step for "done", salva ANTES de mostrar done
     if (FLOW[nextStep]?.id === "done") {
       handleFinishSave(nextAnswers);
     }
@@ -308,7 +410,7 @@ export default function App() {
   const showEmailInput =
     !typing && currentStep?.id === "email" && lastMsg?.from === "bot";
 
-  // ✅ ajuste sugerido: quando não há painel, zera optionsHeight (evita “sobrar espaço”)
+  // ✅ quando não há painel, zera optionsHeight
   useEffect(() => {
     if (!showOptions && !showEmailInput) setOptionsHeight(0);
   }, [showOptions, showEmailInput]);
