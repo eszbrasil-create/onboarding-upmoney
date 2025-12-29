@@ -1,71 +1,60 @@
 // src/pages/SaveOnboarding.jsx
 import { useMemo, useState } from "react";
-import supabase from "../supabaseClient";
+import { saveOnboardingByEmail } from "../services/onboardingService";
 
 /**
  * SaveOnboarding
  * - Salva o JSON das respostas no Supabase (tabela: onboarding_questionnaire)
  *
  * Props:
- * - answers: objeto com as respostas (ex: { goal: "...", alreadyInvest: "...", ... })
- * - onRestart: (opcional) callback para recomeçar
+ * - answers: objeto com as respostas
+ * - onRestart: callback opcional para recomeçar
  */
 export default function SaveOnboarding({ answers, onRestart }) {
   const [email, setEmail] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-  const [err, setErr] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | saving | success | error
+  const [errorMsg, setErrorMsg] = useState("");
 
   const canSave = useMemo(() => {
     return answers && typeof answers === "object" && Object.keys(answers).length > 0;
   }, [answers]);
 
-  async function handleSave({ requireEmail }) {
-    setErr("");
+  async function handleSave() {
+    setErrorMsg("");
 
     if (!canSave) {
-      setErr("Não encontrei respostas para salvar. Volte e preencha o questionário.");
+      setStatus("error");
+      setErrorMsg("Não encontrei respostas para salvar. Volte e preencha o questionário.");
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (requireEmail && !cleanEmail) {
-      setErr("Digite seu e-mail para continuar.");
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    if (!cleanEmail) {
+      setStatus("error");
+      setErrorMsg("Digite seu e-mail para salvar.");
       return;
     }
 
-    // validação simples (opcional)
-    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setErr("E-mail inválido. Confira e tente novamente.");
-      return;
-    }
-
-    setSaving(true);
+    setStatus("saving");
 
     try {
-      const payload = {
-        email: cleanEmail || null,
-        answers, // jsonb
-      };
-
-      const { error } = await supabase.from("onboarding_questionnaire").insert([payload]);
-
-      if (error) throw error;
-
-      setDone(true);
+      await saveOnboardingByEmail(answers, cleanEmail);
+      setStatus("success");
     } catch (e) {
-      setErr(e?.message || "Erro ao salvar. Tente novamente.");
-    } finally {
-      setSaving(false);
+      // e pode vir como objeto do Supabase: { message, details, hint, code }
+      const msg =
+        e?.message ||
+        e?.details ||
+        "Erro ao salvar no Supabase. Verifique RLS/UNIQUE/variáveis do Vercel.";
+      setStatus("error");
+      setErrorMsg(msg);
     }
   }
 
   return (
     <div
       style={{
-        width: "100vw",
-        height: "100dvh",
+        minHeight: "100dvh",
         background: "#f6f7fb",
         display: "flex",
         justifyContent: "center",
@@ -84,7 +73,7 @@ export default function SaveOnboarding({ answers, onRestart }) {
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          Finalizar onboarding
+          Salvar questionário
         </div>
 
         {!canSave && (
@@ -93,11 +82,9 @@ export default function SaveOnboarding({ answers, onRestart }) {
           </div>
         )}
 
-        {done ? (
+        {status === "success" ? (
           <>
-            <div style={{ marginTop: 12, fontSize: 16 }}>
-              ✅ Respostas salvas com sucesso!
-            </div>
+            <div style={{ marginTop: 12, fontSize: 16 }}>✅ Salvo com sucesso!</div>
 
             <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
@@ -117,16 +104,18 @@ export default function SaveOnboarding({ answers, onRestart }) {
         ) : (
           <>
             <div style={{ marginTop: 10, color: "#374151", lineHeight: 1.35 }}>
-              Se quiser, informe seu e-mail (opcional). Assim, se você quiser depois,
-              dá pra devolver um perfil individual.
+              Informe seu e-mail para salvar e permitir que você atualize o questionário
+              depois.
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 13, color: "#6b7280" }}>E-mail (opcional)</label>
+              <label style={{ fontSize: 13, color: "#6b7280" }}>E-mail</label>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ex: seuemail@dominio.com"
+                placeholder="seuemail@dominio.com"
+                inputMode="email"
+                autoComplete="email"
                 style={{
                   width: "100%",
                   marginTop: 6,
@@ -139,46 +128,30 @@ export default function SaveOnboarding({ answers, onRestart }) {
               />
             </div>
 
-            {err && (
+            {status === "error" && (
               <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 14 }}>
-                {err}
+                {errorMsg}
               </div>
             )}
 
             <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
-                disabled={saving || !canSave}
-                onClick={() => handleSave({ requireEmail: false })}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 999,
-                  border: "1px solid #e5e7eb",
-                  background: "white",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  opacity: saving ? 0.7 : 1,
-                }}
-              >
-                {saving ? "Salvando..." : "Salvar (sem exigir e-mail)"}
-              </button>
-
-              <button
-                disabled={saving || !canSave}
-                onClick={() => handleSave({ requireEmail: true })}
+                disabled={status === "saving" || !canSave}
+                onClick={handleSave}
                 style={{
                   padding: "12px 14px",
                   borderRadius: 999,
                   border: "none",
                   background: "#2563eb",
                   color: "white",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  opacity: saving ? 0.7 : 1,
+                  cursor: status === "saving" ? "not-allowed" : "pointer",
+                  opacity: status === "saving" ? 0.7 : 1,
                 }}
               >
-                {saving ? "Salvando..." : "Salvar (exigir e-mail)"}
+                {status === "saving" ? "Salvando..." : "Salvar agora"}
               </button>
             </div>
 
-            {/* Debug opcional: ver o JSON */}
             <details style={{ marginTop: 14 }}>
               <summary style={{ cursor: "pointer", color: "#6b7280" }}>
                 Ver respostas (debug)
