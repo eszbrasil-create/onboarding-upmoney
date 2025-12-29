@@ -2,35 +2,90 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-} from "recharts";
-
 /**
- * Dashboard (mobile-first + instagram-friendly)
- * - Só LÊ dados do Supabase (SELECT)
- * - Tudo em gráfico de Pizza (donut)
+ * Dashboard (auto)
+ * - Lê respostas do Supabase (onboarding_questionnaire)
+ * - Gera automaticamente gráficos de pizza (donut) para TODAS as perguntas do FLOW
+ * - Cabeçalho sempre mostra a pergunta REAL (texto)
+ *
+ * Obs: não seleciona "updated_at" para evitar erro se a coluna não existir.
  */
 
-const COLORS = [
-  "#2563eb",
-  "#22c55e",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#06b6d4",
-  "#111827",
-  "#f97316",
+/** ✅ Ordem das perguntas (igual ao seu FLOW) */
+const QUESTION_ORDER = [
+  "goal",
+  "alreadyInvest",
+  "blocker",
+  "whereInvest",
+  "invested",
+  "ageRange",
+  "income",
+  "spouse",
+  "children",
+  "monthly",
+  "time",
+  "risk",
+  "dividends",
+  "firstDividendEmotion",
+  "expenseControl",
+  "coaching",
+  "learning",
 ];
+
+/** ✅ Texto real das perguntas (pra aparecer no título do chart) */
+const QUESTION_LABELS = {
+  goal: "Pra começar: qual é seu foco principal hoje?",
+  alreadyInvest: "Hoje você já investe?",
+  blocker: "O que mais te trava hoje?",
+  whereInvest: "Onde você já investe hoje?",
+  invested: "Hoje, quanto você já tem investido (aprox.)?",
+  ageRange: "Qual é sua faixa etária?",
+  income: "Qual é sua renda mensal aproximada?",
+  spouse: "Você tem cônjuge?",
+  children: "Você tem filhos?",
+  monthly: "E por mês, quanto você consegue investir (aprox.)?",
+  time: "Em quanto tempo você quer começar a ver resultados?",
+  risk: "E qual frase combina mais com você?",
+  dividends: "Dividendos são um objetivo pra você?",
+  firstDividendEmotion:
+    "Se você recebesse seu primeiro dividendo, qual valor já te deixaria feliz?",
+  expenseControl: "Hoje você faz algum controle das suas despesas?",
+  coaching: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
+  learning: "E você prefere aprender como?",
+};
+
+/** ❌ Chaves que não viram gráfico */
+const EXCLUDE_KEYS = new Set(["email", "welcome", "done"]);
+
+/** Paleta (bonita e consistente) */
+const PALETTE = [
+  "#2563eb", // azul
+  "#22c55e", // verde
+  "#f59e0b", // laranja
+  "#ef4444", // vermelho
+  "#a855f7", // roxo
+  "#06b6d4", // ciano
+  "#f97316", // laranja2
+  "#10b981", // verde2
+  "#3b82f6", // azul2
+  "#e11d48", // rosa/vermelho
+];
+
+/** Helpers */
+function sum(arr) {
+  return arr.reduce((acc, x) => acc + (x?.value || 0), 0);
+}
+
+function safeLabel(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v).trim();
+  return s;
+}
 
 function countBy(rows, key) {
   const m = new Map();
   for (const r of rows) {
-    const v = r?.answers?.[key];
+    const v = safeLabel(r?.answers?.[key]);
     if (!v) continue;
     m.set(v, (m.get(v) || 0) + 1);
   }
@@ -39,60 +94,49 @@ function countBy(rows, key) {
     .sort((a, b) => b.value - a.value);
 }
 
-function toPieData(list) {
-  return (list || []).map((d) => ({ name: d.label, value: d.value }));
-}
-
-function pct(n, total) {
-  if (!total) return "0%";
-  return `${Math.round((n / total) * 100)}%`;
-}
-
-function TopBar({ title, postMode, onTogglePostMode }) {
+/** UI */
+function TopBar({ title }) {
   return (
     <div
       style={{
         position: "sticky",
         top: 0,
         zIndex: 10,
-        background: "rgba(255,255,255,0.92)",
+        background: "rgba(255,255,255,0.88)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid rgba(0,0,0,0.06)",
-        padding: postMode ? "16px 16px" : "14px 14px",
+        padding: "14px 14px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 10,
       }}
     >
-      <div style={{ fontWeight: 900, fontSize: postMode ? 18 : 16 }}>
-        {title}
-      </div>
+      <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <button
-          onClick={onTogglePostMode}
+        <a
+          href="/analises"
           style={{
+            fontSize: 13,
+            textDecoration: "none",
+            color: "#0f172a",
+            fontWeight: 800,
+            padding: "8px 10px",
             borderRadius: 999,
-            padding: postMode ? "10px 14px" : "8px 12px",
-            border: "1px solid rgba(0,0,0,0.12)",
-            background: "white",
-            cursor: "pointer",
-            fontWeight: 900,
-            fontSize: postMode ? 13 : 12,
-            color: "#111827",
+            background: "rgba(15,23,42,0.06)",
+            border: "1px solid rgba(15,23,42,0.08)",
           }}
         >
-          {postMode ? "Modo normal" : "Modo post"}
-        </button>
+          Análises
+        </a>
 
         <a
           href="/"
           style={{
-            fontSize: postMode ? 13 : 12,
+            fontSize: 13,
             textDecoration: "none",
             color: "#2563eb",
-            fontWeight: 900,
+            fontWeight: 800,
           }}
         >
           Voltar
@@ -102,160 +146,194 @@ function TopBar({ title, postMode, onTogglePostMode }) {
   );
 }
 
-function Card({ title, subtitle, postMode, children }) {
+function Card({ title, subtitle, children }) {
   return (
     <div
       style={{
         background: "white",
         border: "1px solid rgba(0,0,0,0.06)",
         borderRadius: 18,
-        padding: postMode ? 18 : 14,
-        boxShadow: "0 14px 30px rgba(0,0,0,0.06)",
+        padding: 14,
+        boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+        overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          fontWeight: 1000,
-          fontSize: postMode ? 16 : 14,
-          letterSpacing: "-0.2px",
-        }}
-      >
+      <div style={{ fontWeight: 950, fontSize: 14, color: "#0f172a" }}>
         {title}
       </div>
-
       {subtitle ? (
-        <div
-          style={{
-            marginTop: 6,
-            color: "#6b7280",
-            fontSize: postMode ? 13 : 12,
-            lineHeight: 1.3,
-          }}
-        >
+        <div style={{ marginTop: 6, color: "#64748b", fontSize: 12 }}>
           {subtitle}
         </div>
       ) : null}
-
       <div style={{ marginTop: 12 }}>{children}</div>
     </div>
   );
 }
 
-function DonutChart({ data, postMode }) {
-  if (!data?.length) {
-    return <div style={{ color: "#6b7280" }}>Sem dados</div>;
+/**
+ * DonutChart (SVG)
+ * - legenda com % e quantidade
+ * - total no centro
+ */
+function DonutChart({ data }) {
+  const total = sum(data);
+  if (!total) {
+    return (
+      <div
+        style={{
+          color: "#64748b",
+          fontSize: 13,
+          background: "rgba(15,23,42,0.04)",
+          border: "1px dashed rgba(15,23,42,0.16)",
+          borderRadius: 14,
+          padding: 12,
+        }}
+      >
+        Ainda sem respostas para essa pergunta.
+      </div>
+    );
   }
 
-  const total = data.reduce((acc, d) => acc + (d.value || 0), 0);
+  // parâmetros do donut
+  const size = 170;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 56;
+  const stroke = 18;
+  const C = 2 * Math.PI * r;
+
+  // cria segmentos usando círculos com dasharray/dashoffset
+  let acc = 0;
 
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: postMode ? "1fr" : "1fr 1fr",
-        gap: postMode ? 14 : 12,
+        gridTemplateColumns: "180px 1fr",
+        gap: 12,
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", height: postMode ? 320 : 240 }}>
-        <ResponsiveContainer>
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={postMode ? 78 : 60}
-              outerRadius={postMode ? 120 : 92}
-              paddingAngle={2}
-              stroke="white"
-              strokeWidth={2}
-            >
-              {data.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
+      <div
+        style={{
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(180deg, rgba(37,99,235,0.06), rgba(15,23,42,0.02))",
+          borderRadius: 16,
+          border: "1px solid rgba(0,0,0,0.06)",
+          padding: 10,
+        }}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {/* trilho */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="rgba(15,23,42,0.08)"
+            strokeWidth={stroke}
+          />
 
-            <Tooltip
-              formatter={(value, name) => {
-                const v = Number(value) || 0;
-                return [`${v} (${pct(v, total)})`, name];
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+          {/* segmentos */}
+          <g transform={`rotate(-90 ${cx} ${cy})`}>
+            {data.map((d, i) => {
+              const frac = d.value / total;
+              const seg = frac * C;
 
-        {/* Centro (TOTAL) */}
-        <div
-          style={{
-            position: "relative",
-            marginTop: postMode ? -210 : -165,
-            textAlign: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <div style={{ fontSize: postMode ? 12 : 11, color: "#6b7280" }}>
-            Total
-          </div>
-          <div style={{ fontSize: postMode ? 28 : 22, fontWeight: 1000 }}>
+              const dasharray = `${seg} ${C - seg}`;
+              const dashoffset = -acc;
+
+              acc += seg;
+
+              const color = PALETTE[i % PALETTE.length];
+
+              return (
+                <circle
+                  key={d.label}
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={stroke}
+                  strokeDasharray={dasharray}
+                  strokeDashoffset={dashoffset}
+                  strokeLinecap="butt"
+                />
+              );
+            })}
+          </g>
+
+          {/* centro */}
+          <circle cx={cx} cy={cy} r={r - stroke / 2 - 6} fill="white" />
+          <text
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            style={{ fontSize: 22, fontWeight: 950, fill: "#0f172a" }}
+          >
             {total}
-          </div>
-        </div>
+          </text>
+          <text
+            x={cx}
+            y={cy + 18}
+            textAnchor="middle"
+            style={{ fontSize: 12, fontWeight: 700, fill: "#64748b" }}
+          >
+            respostas
+          </text>
+        </svg>
       </div>
 
-      {/* Legenda bonita (ótima pra print) */}
-      <div style={{ display: "grid", gap: postMode ? 10 : 8 }}>
-        {data.map((d, i) => (
-          <div
-            key={d.name}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              padding: postMode ? "10px 12px" : "8px 10px",
-              borderRadius: 14,
-              border: "1px solid rgba(0,0,0,0.06)",
-              background: "rgba(0,0,0,0.02)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* legenda */}
+      <div style={{ display: "grid", gap: 8 }}>
+        {data.map((d, i) => {
+          const pct = Math.round((d.value / total) * 100);
+          const color = PALETTE[i % PALETTE.length];
+
+          return (
+            <div
+              key={d.label}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "12px 1fr auto",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 10px",
+                borderRadius: 14,
+                border: "1px solid rgba(0,0,0,0.06)",
+                background: "rgba(255,255,255,0.9)",
+              }}
+            >
               <div
                 style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 4,
-                  background: COLORS[i % COLORS.length],
+                  width: 10,
+                  height: 10,
+                  borderRadius: 3,
+                  background: color,
                 }}
               />
               <div
                 style={{
-                  fontWeight: 900,
-                  fontSize: postMode ? 13 : 12,
-                  color: "#111827",
-                  lineHeight: 1.2,
+                  fontSize: 13,
+                  fontWeight: 750,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
+                title={d.label}
               >
-                {d.name}
+                {d.label}
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                {pct}% · {d.value}
               </div>
             </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 8,
-                fontWeight: 900,
-              }}
-            >
-              <div style={{ color: "#111827", fontSize: postMode ? 14 : 12 }}>
-                {d.value}
-              </div>
-              <div style={{ color: "#6b7280", fontSize: postMode ? 12 : 11 }}>
-                {pct(d.value, total)}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -265,18 +343,17 @@ export default function Dashboard() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [postMode, setPostMode] = useState(false);
 
   async function load() {
     setLoading(true);
     setErr("");
+
     try {
-      // ✅ sem updated_at (sua tabela não tem)
       const { data, error } = await supabase
         .from("onboarding_questionnaire")
         .select("id,email,answers,created_at")
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .limit(2000);
 
       if (error) throw error;
       setRows(data || []);
@@ -293,75 +370,80 @@ export default function Dashboard() {
 
   const total = rows.length;
 
-  const goal = useMemo(() => toPieData(countBy(rows, "goal")), [rows]);
-  const blocker = useMemo(() => toPieData(countBy(rows, "blocker")), [rows]);
-  const income = useMemo(() => toPieData(countBy(rows, "income")), [rows]);
-  const invested = useMemo(() => toPieData(countBy(rows, "invested")), [rows]);
-  const expenseControl = useMemo(
-    () => toPieData(countBy(rows, "expenseControl")),
-    [rows]
-  );
-  const coaching = useMemo(() => toPieData(countBy(rows, "coaching")), [rows]);
-  const ageRange = useMemo(() => toPieData(countBy(rows, "ageRange")), [rows]);
-  const spouse = useMemo(() => toPieData(countBy(rows, "spouse")), [rows]);
+  /** ✅ monta automaticamente os gráficos na ordem do FLOW */
+  const charts = useMemo(() => {
+    return QUESTION_ORDER.filter((k) => !EXCLUDE_KEYS.has(k)).map((key) => {
+      const data = countBy(rows, key);
+      return {
+        key,
+        title: QUESTION_LABELS[key] || key,
+        data,
+      };
+    });
+  }, [rows]);
 
-  // ✅ sua pergunta no App é "children"
-  const children = useMemo(() => toPieData(countBy(rows, "children")), [rows]);
+  /** (extra) se aparecerem chaves novas no banco, mostra também no final */
+  const extraKeys = useMemo(() => {
+    const s = new Set();
+    for (const r of rows) {
+      const a = r?.answers || {};
+      Object.keys(a).forEach((k) => {
+        if (EXCLUDE_KEYS.has(k)) return;
+        if (QUESTION_ORDER.includes(k)) return;
+        s.add(k);
+      });
+    }
+    return Array.from(s);
+  }, [rows]);
 
-  const wrapBg = postMode
-    ? "linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%)"
-    : "#f6f7fb";
+  const extraCharts = useMemo(() => {
+    return extraKeys.map((key) => ({
+      key,
+      title: QUESTION_LABELS[key] || key,
+      data: countBy(rows, key),
+    }));
+  }, [extraKeys, rows]);
 
   return (
-    <div style={{ minHeight: "100dvh", background: wrapBg }}>
-      <TopBar
-        title="Admin • Dashboard"
-        postMode={postMode}
-        onTogglePostMode={() => setPostMode((v) => !v)}
-      />
+    <div style={{ minHeight: "100dvh", background: "#f6f7fb" }}>
+      <TopBar title="Admin • Dashboard" />
 
-      <div
-        style={{
-          padding: postMode ? 18 : 14,
-          maxWidth: postMode ? 1080 : 980,
-          margin: "0 auto",
-        }}
-      >
-        <div style={{ display: "grid", gap: postMode ? 14 : 12 }}>
+      <div style={{ padding: 14, maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ display: "grid", gap: 12 }}>
+          {/* Resumo */}
           <Card
             title="Resumo"
-            subtitle="Dados lidos do Supabase (tabela onboarding_questionnaire)"
-            postMode={postMode}
+            subtitle="Leitura direta do Supabase (onboarding_questionnaire). Ideal pra virar conteúdo do Instagram."
           >
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <div
                 style={{
-                  flex: "1 1 160px",
-                  background: "#0b1220",
+                  flex: "1 1 200px",
+                  background: "linear-gradient(135deg, #0b1220, #111827)",
                   color: "white",
                   borderRadius: 16,
-                  padding: postMode ? 16 : 14,
+                  padding: 14,
+                  border: "1px solid rgba(255,255,255,0.10)",
                 }}
               >
-                <div style={{ fontSize: postMode ? 13 : 12, opacity: 0.85 }}>
-                  Respostas
-                </div>
-                <div style={{ fontSize: postMode ? 30 : 26, fontWeight: 1000 }}>
-                  {total}
+                <div style={{ fontSize: 12, opacity: 0.85 }}>Respostas</div>
+                <div style={{ fontSize: 28, fontWeight: 950 }}>{total}</div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+                  (últimos {Math.min(total, 2000)} registros)
                 </div>
               </div>
 
               <button
                 onClick={load}
                 style={{
-                  flex: "1 1 160px",
+                  flex: "1 1 200px",
                   borderRadius: 16,
-                  padding: postMode ? 16 : 14,
-                  border: "1px solid rgba(0,0,0,0.12)",
+                  padding: 14,
+                  border: "1px solid rgba(15,23,42,0.14)",
                   background: "white",
                   cursor: "pointer",
-                  fontWeight: 1000,
-                  fontSize: postMode ? 14 : 13,
+                  fontWeight: 900,
+                  color: "#0f172a",
                 }}
               >
                 Atualizar dados
@@ -370,18 +452,17 @@ export default function Dashboard() {
               <a
                 href="/analises"
                 style={{
-                  flex: "1 1 160px",
+                  flex: "1 1 200px",
                   borderRadius: 16,
-                  padding: postMode ? 16 : 14,
+                  padding: 14,
                   border: "none",
-                  background: "#2563eb",
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
                   color: "white",
                   textDecoration: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontWeight: 1000,
-                  fontSize: postMode ? 14 : 13,
+                  fontWeight: 950,
                 }}
               >
                 Ver análises
@@ -389,78 +470,89 @@ export default function Dashboard() {
             </div>
 
             {loading && (
-              <div style={{ marginTop: 12, color: "#6b7280" }}>
+              <div style={{ marginTop: 12, color: "#64748b" }}>
                 Carregando…
               </div>
             )}
+
             {err && (
               <div style={{ marginTop: 12, color: "#b91c1c" }}>
                 {err}
-                <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
                   Se der erro aqui, normalmente é RLS/Policies ou variáveis do
-                  Vercel.
+                  Vercel (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).
                 </div>
               </div>
             )}
           </Card>
 
+          {/* Gráficos */}
           <div
             style={{
               display: "grid",
-              gap: postMode ? 14 : 12,
-              gridTemplateColumns: postMode
-                ? "1fr"
-                : "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
             }}
           >
-            <Card title="Objetivo principal (goal)" postMode={postMode}>
-              <DonutChart data={goal} postMode={postMode} />
-            </Card>
+            {charts.map((c) => (
+              <Card
+                key={c.key}
+                title={c.title}
+                subtitle={`Chave: ${c.key}`}
+              >
+                <DonutChart data={c.data} />
+              </Card>
+            ))}
 
-            <Card title="Maior trava (blocker)" postMode={postMode}>
-              <DonutChart data={blocker} postMode={postMode} />
-            </Card>
-
-            <Card title="Renda (income)" postMode={postMode}>
-              <DonutChart data={income} postMode={postMode} />
-            </Card>
-
-            <Card title="Quanto já investe (invested)" postMode={postMode}>
-              <DonutChart data={invested} postMode={postMode} />
-            </Card>
-
-            <Card title="Controle de despesas (expenseControl)" postMode={postMode}>
-              <DonutChart data={expenseControl} postMode={postMode} />
-            </Card>
-
-            <Card title="Acompanhamento ajuda? (coaching)" postMode={postMode}>
-              <DonutChart data={coaching} postMode={postMode} />
-            </Card>
-
-            <Card title="Faixa etária (ageRange)" postMode={postMode}>
-              <DonutChart data={ageRange} postMode={postMode} />
-            </Card>
-
-            <Card title="Tem cônjuge? (spouse)" postMode={postMode}>
-              <DonutChart data={spouse} postMode={postMode} />
-            </Card>
-
-            <Card title="Tem filhos? (children)" postMode={postMode}>
-              <DonutChart data={children} postMode={postMode} />
-            </Card>
+            {extraCharts.length > 0 ? (
+              <Card
+                title="Perguntas extras detectadas no banco"
+                subtitle="Essas chaves apareceram em answers mas não estão no seu FLOW."
+              >
+                <div style={{ display: "grid", gap: 12 }}>
+                  {extraCharts.map((c) => (
+                    <div
+                      key={c.key}
+                      style={{
+                        border: "1px solid rgba(0,0,0,0.06)",
+                        borderRadius: 16,
+                        padding: 12,
+                        background: "rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 950,
+                          fontSize: 13,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {c.title}{" "}
+                        <span style={{ color: "#64748b", fontWeight: 800 }}>
+                          ({c.key})
+                        </span>
+                      </div>
+                      <div style={{ marginTop: 10 }}>
+                        <DonutChart data={c.data} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
           </div>
 
           <div
             style={{
-              marginTop: 6,
-              fontSize: postMode ? 12 : 11,
-              color: "#6b7280",
-              paddingBottom: 18,
+              marginTop: 2,
+              fontSize: 12,
+              color: "#64748b",
+              paddingBottom: 22,
             }}
           >
-            Dica: ative <b>Modo post</b> e faça um print. Se quiser, depois eu
-            deixo uma versão “1 post = 1 gráfico” com capa e título (bem cara de
-            Instagram).
+            Dica: quando você tiver mais respostas, esses donuts ficam ainda mais
+            “postáveis” pro Instagram. Se quiser, depois eu te monto um layout
+            “modo post” (1080×1350) com 3–4 gráficos por slide.
           </div>
         </div>
       </div>
