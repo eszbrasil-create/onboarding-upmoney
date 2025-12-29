@@ -78,6 +78,21 @@ const FLOW = [
       "Prefiro não informar",
     ],
   },
+
+  // ✅ NOVO: cônjuge
+  {
+    id: "spouse",
+    bot: "Você tem cônjuge?",
+    options: ["Sim", "Não"],
+  },
+
+  // ✅ NOVO: filhos
+  {
+    id: "children",
+    bot: "Você tem filhos?",
+    options: ["Sim", "Não"],
+  },
+
   {
     id: "monthly",
     bot: "E por mês, quanto você consegue investir (aprox.)?",
@@ -362,7 +377,8 @@ export default function App() {
 
     // ✅ ajuda o iPhone a reposicionar depois do teclado
     setTimeout(() => {
-      if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      if (chatRef.current)
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }, 50);
   }
 
@@ -377,7 +393,9 @@ export default function App() {
     const currentId = FLOW[step]?.id;
 
     if (/^https?:\/\//i.test(opt)) {
-      const nextAnswers = currentId ? { ...answers, [currentId]: opt } : answers;
+      const nextAnswers = currentId
+        ? { ...answers, [currentId]: opt }
+        : answers;
       handleFinishSave(nextAnswers);
       window.open(opt, "_blank", "noopener,noreferrer");
       return;
