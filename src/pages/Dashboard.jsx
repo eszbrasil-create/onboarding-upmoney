@@ -2,11 +2,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart as RBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+
 /**
  * Dashboard (mobile-first)
  * - Só LÊ dados do Supabase (SELECT)
- * - Mostra contagens e “gráficos” simples (barras em CSS)
+ * - Mostra contagens e gráficos (Recharts)
  */
+
+const CHART_COLORS = [
+  "#2563eb",
+  "#22c55e",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#111827",
+];
 
 function countBy(rows, key) {
   const m = new Map();
@@ -18,6 +42,11 @@ function countBy(rows, key) {
   return Array.from(m.entries())
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value);
+}
+
+// Recharts precisa de { name, value }
+function toChartData(list) {
+  return (list || []).map((d) => ({ name: d.label, value: d.value }));
 }
 
 function TopBar({ title }) {
@@ -74,43 +103,58 @@ function Card({ title, subtitle, children }) {
   );
 }
 
-function BarChart({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+function PieBlock({ data }) {
+  if (!data?.length) return <div style={{ color: "#6b7280" }}>Sem dados</div>;
+
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {data.map((d) => (
-        <div key={d.label} style={{ display: "grid", gap: 6 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 10,
-              fontSize: 13,
-            }}
+    <div style={{ width: "100%", height: 260 }}>
+      <ResponsiveContainer>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            outerRadius={92}
+            label
           >
-            <div style={{ color: "#111827", fontWeight: 600 }}>{d.label}</div>
-            <div style={{ color: "#6b7280" }}>{d.value}</div>
-          </div>
-          <div
-            style={{
-              height: 10,
-              borderRadius: 999,
-              background: "rgba(37,99,235,0.10)",
-              overflow: "hidden",
-              border: "1px solid rgba(37,99,235,0.12)",
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${Math.round((d.value / max) * 100)}%`,
-                background: "#2563eb",
-                borderRadius: 999,
-              }}
-            />
-          </div>
-        </div>
-      ))}
+            {data.map((_, i) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function BarBlock({ data }) {
+  if (!data?.length) return <div style={{ color: "#6b7280" }}>Sem dados</div>;
+
+  // limita a 8 itens para ficar bonito no mobile
+  const sliced = data.slice(0, 8);
+
+  return (
+    <div style={{ width: "100%", height: 280 }}>
+      <ResponsiveContainer>
+        <RBarChart data={sliced}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="name"
+            interval={0}
+            tick={{ fontSize: 11 }}
+            height={60}
+          />
+          <YAxis allowDecimals={false} />
+          <Tooltip />
+          <Bar dataKey="value">
+            {sliced.map((_, i) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Bar>
+        </RBarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -124,9 +168,10 @@ export default function Dashboard() {
     setLoading(true);
     setErr("");
     try {
+      // ✅ removi updated_at porque sua tabela não tem essa coluna
       const { data, error } = await supabase
         .from("onboarding_questionnaire")
-        .select("id,email,answers,created_at,updated_at")
+        .select("id,email,answers,created_at")
         .order("created_at", { ascending: false })
         .limit(1000);
 
@@ -151,9 +196,22 @@ export default function Dashboard() {
   const invested = useMemo(() => countBy(rows, "invested"), [rows]);
   const expenseControl = useMemo(() => countBy(rows, "expenseControl"), [rows]);
   const coaching = useMemo(() => countBy(rows, "coaching"), [rows]);
-  const ageRange = useMemo(() => countBy(rows, "ageRange"), [rows]); // se existir
-  const spouse = useMemo(() => countBy(rows, "spouse"), [rows]); // se existir
-  const kids = useMemo(() => countBy(rows, "kids"), [rows]); // se existir
+  const ageRange = useMemo(() => countBy(rows, "ageRange"), [rows]);
+  const spouse = useMemo(() => countBy(rows, "spouse"), [rows]);
+
+  // ✅ seu FLOW usa "children", não "kids"
+  const children = useMemo(() => countBy(rows, "children"), [rows]);
+
+  // dados no formato do Recharts
+  const goalChart = useMemo(() => toChartData(goal), [goal]);
+  const blockerChart = useMemo(() => toChartData(blocker), [blocker]);
+  const incomeChart = useMemo(() => toChartData(income), [income]);
+  const investedChart = useMemo(() => toChartData(invested), [invested]);
+  const expenseChart = useMemo(() => toChartData(expenseControl), [expenseControl]);
+  const coachingChart = useMemo(() => toChartData(coaching), [coaching]);
+  const ageChart = useMemo(() => toChartData(ageRange), [ageRange]);
+  const spouseChart = useMemo(() => toChartData(spouse), [spouse]);
+  const childrenChart = useMemo(() => toChartData(children), [children]);
 
   return (
     <div style={{ minHeight: "100dvh", background: "#f6f7fb" }}>
@@ -235,75 +293,42 @@ export default function Dashboard() {
               gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             }}
           >
-            <Card title="Objetivo principal (goal)">
-              {goal.length ? <BarChart data={goal} /> : <div>Sem dados</div>}
+            {/* Pizza (ótimo quando tem poucas opções) */}
+            <Card title="Objetivo principal (goal) — Pizza">
+              <PieBlock data={goalChart} />
             </Card>
 
-            <Card title="Maior trava (blocker)">
-              {blocker.length ? (
-                <BarChart data={blocker} />
-              ) : (
-                <div>Sem dados</div>
-              )}
+            <Card title="Faixa etária (ageRange) — Pizza">
+              <PieBlock data={ageChart} />
             </Card>
 
-            <Card title="Renda (income)">
-              {income.length ? <BarChart data={income} /> : <div>Sem dados</div>}
+            <Card title="Tem cônjuge? (spouse) — Pizza">
+              <PieBlock data={spouseChart} />
             </Card>
 
-            <Card title="Quanto já investe (invested)">
-              {invested.length ? (
-                <BarChart data={invested} />
-              ) : (
-                <div>Sem dados</div>
-              )}
+            <Card title="Tem filhos? (children) — Pizza">
+              <PieBlock data={childrenChart} />
             </Card>
 
-            <Card title="Controle de despesas (expenseControl)">
-              {expenseControl.length ? (
-                <BarChart data={expenseControl} />
-              ) : (
-                <div>Sem dados</div>
-              )}
+            {/* Barras (melhor quando tem várias opções) */}
+            <Card title="Maior trava (blocker) — Barras">
+              <BarBlock data={blockerChart} />
             </Card>
 
-            <Card title="Acompanhamento ajuda? (coaching)">
-              {coaching.length ? (
-                <BarChart data={coaching} />
-              ) : (
-                <div>Sem dados</div>
-              )}
+            <Card title="Renda (income) — Barras">
+              <BarBlock data={incomeChart} />
             </Card>
 
-            {/* Se você adicionou essas perguntas, elas vão aparecer automaticamente quando tiver dados */}
-            <Card title="Faixa etária (ageRange)">
-              {ageRange.length ? (
-                <BarChart data={ageRange} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
-                </div>
-              )}
+            <Card title="Quanto já investe (invested) — Barras">
+              <BarBlock data={investedChart} />
             </Card>
 
-            <Card title="Tem cônjuge? (spouse)">
-              {spouse.length ? (
-                <BarChart data={spouse} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
-                </div>
-              )}
+            <Card title="Controle de despesas (expenseControl) — Barras">
+              <BarBlock data={expenseChart} />
             </Card>
 
-            <Card title="Tem filhos? (kids)">
-              {kids.length ? (
-                <BarChart data={kids} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
-                </div>
-              )}
+            <Card title="Acompanhamento ajuda? (coaching) — Barras">
+              <BarBlock data={coachingChart} />
             </Card>
           </div>
         </div>
@@ -316,9 +341,8 @@ export default function Dashboard() {
             paddingBottom: 20,
           }}
         >
-          Dica: se quiser, depois a gente transforma essas barras em gráficos
-          “pizza”/linha usando uma lib. Por enquanto, isso já funciona 100% em
-          mobile e sem dependências extras.
+          Obs.: se um gráfico ficar “Sem dados”, é porque ainda não tem respostas
+          suficientes naquela chave dentro do answers.
         </div>
       </div>
     </div>
