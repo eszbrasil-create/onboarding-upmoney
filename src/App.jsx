@@ -66,6 +66,14 @@ const FLOW = [
       "Acima de R$ 50.000",
     ],
   },
+
+  // ✅ NOVO: faixa etária
+  {
+    id: "ageRange",
+    bot: "Qual é sua faixa etária?",
+    options: ["Até 18", "19–24", "25–34", "35–44", "45–54", "55–64", "65+"],
+  },
+
   {
     id: "income",
     bot: "Qual é sua renda mensal aproximada?",
