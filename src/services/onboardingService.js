@@ -2,45 +2,23 @@
 import { supabase } from "../supabaseClient";
 
 /**
- * Opção B (sem OTP): 1 linha por e-mail, sobrescreve sempre o último questionário.
+ * Opção B (sem Auth/OTP):
+ * - 1 linha por e-mail
+ * - sempre sobrescreve o último questionário desse e-mail
  *
- * Tabela: public.onboarding_questionnaire
- * Colunas recomendadas:
- * - id (uuid) default gen_random_uuid()
- * - email (text NOT NULL)  <-- com UNIQUE (ideal: UNIQUE em lower(email))
- * - answers (jsonb NOT NULL)
- * - created_at (timestamptz default now())
- * - updated_at (timestamptz default now())
- *
- * IMPORTANTE:
- * - Sem OTP/login, qualquer pessoa pode digitar um e-mail e sobrescrever dados desse e-mail.
- * - Se você quer impedir isso no futuro, aí sim entra Auth (OTP) + RLS.
+ * Tabela (projeto novo): public.onboarding_questionnaire
+ * Colunas:
+ * - id (uuid)
+ * - email (text)  [UNIQUE]
+ * - answers (jsonb)
+ * - created_at (timestamptz)
  */
-
-/** (Opcional) Session id local para debug/backup */
-function getOrCreateSessionId() {
-  const KEY = "onboarding_session_id";
-  try {
-    const existing = localStorage.getItem(KEY);
-    if (existing) return existing;
-
-    const newId =
-      (crypto?.randomUUID && crypto.randomUUID()) ||
-      `sess_${Math.random().toString(16).slice(2)}_${Date.now()}`;
-
-    localStorage.setItem(KEY, newId);
-    return newId;
-  } catch {
-    return `sess_${Math.random().toString(16).slice(2)}_${Date.now()}`;
-  }
-}
 
 function normalizeEmail(email) {
   return (email || "").trim().toLowerCase();
 }
 
 function isValidEmail(email) {
-  // validação simples (boa o suficiente pro MVP)
   return typeof email === "string" && email.includes("@") && email.includes(".");
 }
 
@@ -59,22 +37,12 @@ export async function saveOnboardingByEmail(answers, email) {
     throw new Error("E-mail inválido.");
   }
 
-  const session_id = getOrCreateSessionId();
-
-  // payload mínimo (você pode remover session_id se não tiver essa coluna)
+  // ⚠️ IMPORTANTE: só mandar campos que EXISTEM na tabela
   const payload = {
     email: cleanEmail,
     answers,
-    session_id, // opcional: só se existir coluna na tabela
-    updated_at: new Date().toISOString(), // se existir coluna updated_at
   };
 
-  /**
-   * onConflict:
-   * - Se seu UNIQUE for em (email), use "email"
-   * - Se seu UNIQUE for em lower(email), ainda dá certo na prática
-   *   se você sempre salvar email em minúsculo (este código salva).
-   */
   const { data, error } = await supabase
     .from("onboarding_questionnaire")
     .upsert(payload, { onConflict: "email" })
@@ -90,10 +58,10 @@ export async function saveOnboardingByEmail(answers, email) {
 }
 
 /**
- * (Compatibilidade) Caso você ainda chame saveOnboarding(answers, email)
- * em algum lugar do App:
+ * Compatibilidade:
+ * Caso você ainda chame saveOnboarding(answers, email) no App.jsx
  */
-export async function saveOnboarding(answers, email = null) {
+export async function saveOnboarding(answers, email) {
   if (!email) {
     throw new Error("E-mail obrigatório para salvar (opção B por e-mail).");
   }
