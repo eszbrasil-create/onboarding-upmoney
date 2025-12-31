@@ -3,18 +3,89 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 /**
- * Dashboard (mobile-first)
- * - Só LÊ dados do Supabase (SELECT)
- * - Mostra contagens e “gráficos” simples (barras em CSS)
+ * Dashboard (auto)
+ * - Lê respostas do Supabase (onboarding_questionnaire)
+ * - Gera automaticamente gráficos de pizza (donut) para TODAS as perguntas do FLOW
+ * - Cabeçalho sempre mostra a pergunta REAL (texto)
  *
- * ✅ Fix: removido updated_at do SELECT (sua tabela não tem essa coluna)
- * ✅ Fix: kids -> children (seu App.jsx salva como "children")
+ * Obs: não seleciona "updated_at" para evitar erro se a coluna não existir.
  */
+
+/** ✅ Ordem das perguntas (igual ao seu FLOW) */
+const QUESTION_ORDER = [
+  "goal",
+  "alreadyInvest",
+  "blocker",
+  "whereInvest",
+  "invested",
+  "ageRange",
+  "income",
+  "spouse",
+  "children",
+  "monthly",
+  "time",
+  "risk",
+  "dividends",
+  "firstDividendEmotion",
+  "expenseControl",
+  "coaching",
+  "learning",
+];
+
+/** ✅ Texto real das perguntas (pra aparecer no título do chart) */
+const QUESTION_LABELS = {
+  goal: "Pra começar: qual é seu foco principal hoje?",
+  alreadyInvest: "Hoje você já investe?",
+  blocker: "O que mais te trava hoje?",
+  whereInvest: "Onde você já investe hoje?",
+  invested: "Hoje, quanto você já tem investido (aprox.)?",
+  ageRange: "Qual é sua faixa etária?",
+  income: "Qual é sua renda mensal aproximada?",
+  spouse: "Você tem cônjuge?",
+  children: "Você tem filhos?",
+  monthly: "E por mês, quanto você consegue investir (aprox.)?",
+  time: "Em quanto tempo você quer começar a ver resultados?",
+  risk: "E qual frase combina mais com você?",
+  dividends: "Dividendos são um objetivo pra você?",
+  firstDividendEmotion:
+    "Se você recebesse seu primeiro dividendo, qual valor já te deixaria feliz?",
+  expenseControl: "Hoje você faz algum controle das suas despesas?",
+  coaching: "Você se sente mais seguro(a) com acompanhamento mais próximo?",
+  learning: "E você prefere aprender como?",
+};
+
+/** ❌ Chaves que não viram gráfico */
+const EXCLUDE_KEYS = new Set(["email", "welcome", "done"]);
+
+/** Paleta (bonita e consistente) */
+const PALETTE = [
+  "#2563eb", // azul
+  "#22c55e", // verde
+  "#f59e0b", // laranja
+  "#ef4444", // vermelho
+  "#a855f7", // roxo
+  "#06b6d4", // ciano
+  "#f97316", // laranja2
+  "#10b981", // verde2
+  "#3b82f6", // azul2
+  "#e11d48", // rosa/vermelho
+];
+
+/** Helpers */
+function sum(arr) {
+  return arr.reduce((acc, x) => acc + (x?.value || 0), 0);
+}
+
+function safeLabel(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v).trim();
+  return s;
+}
 
 function countBy(rows, key) {
   const m = new Map();
   for (const r of rows) {
-    const v = r?.answers?.[key];
+    const v = safeLabel(r?.answers?.[key]);
     if (!v) continue;
     m.set(v, (m.get(v) || 0) + 1);
   }
@@ -23,6 +94,7 @@ function countBy(rows, key) {
     .sort((a, b) => b.value - a.value);
 }
 
+/** UI */
 function TopBar({ title }) {
   return (
     <div
@@ -30,7 +102,7 @@ function TopBar({ title }) {
         position: "sticky",
         top: 0,
         zIndex: 10,
-        background: "rgba(255,255,255,0.92)",
+        background: "rgba(255,255,255,0.88)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid rgba(0,0,0,0.06)",
         padding: "14px 14px",
@@ -40,17 +112,36 @@ function TopBar({ title }) {
       }}
     >
       <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-      <a
-        href="/"
-        style={{
-          fontSize: 13,
-          textDecoration: "none",
-          color: "#2563eb",
-          fontWeight: 700,
-        }}
-      >
-        Voltar
-      </a>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <a
+          href="/analises"
+          style={{
+            fontSize: 13,
+            textDecoration: "none",
+            color: "#0f172a",
+            fontWeight: 800,
+            padding: "8px 10px",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.06)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          Análises
+        </a>
+
+        <a
+          href="/"
+          style={{
+            fontSize: 13,
+            textDecoration: "none",
+            color: "#2563eb",
+            fontWeight: 800,
+          }}
+        >
+          Voltar
+        </a>
+      </div>
     </div>
   );
 }
@@ -61,14 +152,17 @@ function Card({ title, subtitle, children }) {
       style={{
         background: "white",
         border: "1px solid rgba(0,0,0,0.06)",
-        borderRadius: 16,
+        borderRadius: 18,
         padding: 14,
         boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+        overflow: "hidden",
       }}
     >
-      <div style={{ fontWeight: 900, fontSize: 14 }}>{title}</div>
+      <div style={{ fontWeight: 950, fontSize: 14, color: "#0f172a" }}>
+        {title}
+      </div>
       {subtitle ? (
-        <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>
+        <div style={{ marginTop: 6, color: "#64748b", fontSize: 12 }}>
           {subtitle}
         </div>
       ) : null}
@@ -77,43 +171,170 @@ function Card({ title, subtitle, children }) {
   );
 }
 
-function BarChart({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+/**
+ * DonutChart (SVG)
+ * - legenda com % e quantidade
+ * - total no centro
+ */
+function DonutChart({ data }) {
+  const total = sum(data);
+  if (!total) {
+    return (
+      <div
+        style={{
+          color: "#64748b",
+          fontSize: 13,
+          background: "rgba(15,23,42,0.04)",
+          border: "1px dashed rgba(15,23,42,0.16)",
+          borderRadius: 14,
+          padding: 12,
+        }}
+      >
+        Ainda sem respostas para essa pergunta.
+      </div>
+    );
+  }
+
+  // parâmetros do donut
+  const size = 170;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 56;
+  const stroke = 18;
+  const C = 2 * Math.PI * r;
+
+  // cria segmentos usando círculos com dasharray/dashoffset
+  let acc = 0;
+
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {data.map((d) => (
-        <div key={d.label} style={{ display: "grid", gap: 6 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 10,
-              fontSize: 13,
-            }}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "180px 1fr",
+        gap: 12,
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(180deg, rgba(37,99,235,0.06), rgba(15,23,42,0.02))",
+          borderRadius: 16,
+          border: "1px solid rgba(0,0,0,0.06)",
+          padding: 10,
+        }}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {/* trilho */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="rgba(15,23,42,0.08)"
+            strokeWidth={stroke}
+          />
+
+          {/* segmentos */}
+          <g transform={`rotate(-90 ${cx} ${cy})`}>
+            {data.map((d, i) => {
+              const frac = d.value / total;
+              const seg = frac * C;
+
+              const dasharray = `${seg} ${C - seg}`;
+              const dashoffset = -acc;
+
+              acc += seg;
+
+              const color = PALETTE[i % PALETTE.length];
+
+              return (
+                <circle
+                  key={d.label}
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={stroke}
+                  strokeDasharray={dasharray}
+                  strokeDashoffset={dashoffset}
+                  strokeLinecap="butt"
+                />
+              );
+            })}
+          </g>
+
+          {/* centro */}
+          <circle cx={cx} cy={cy} r={r - stroke / 2 - 6} fill="white" />
+          <text
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            style={{ fontSize: 22, fontWeight: 950, fill: "#0f172a" }}
           >
-            <div style={{ color: "#111827", fontWeight: 600 }}>{d.label}</div>
-            <div style={{ color: "#6b7280" }}>{d.value}</div>
-          </div>
-          <div
-            style={{
-              height: 10,
-              borderRadius: 999,
-              background: "rgba(37,99,235,0.10)",
-              overflow: "hidden",
-              border: "1px solid rgba(37,99,235,0.12)",
-            }}
+            {total}
+          </text>
+          <text
+            x={cx}
+            y={cy + 18}
+            textAnchor="middle"
+            style={{ fontSize: 12, fontWeight: 700, fill: "#64748b" }}
           >
+            respostas
+          </text>
+        </svg>
+      </div>
+
+      {/* legenda */}
+      <div style={{ display: "grid", gap: 8 }}>
+        {data.map((d, i) => {
+          const pct = Math.round((d.value / total) * 100);
+          const color = PALETTE[i % PALETTE.length];
+
+          return (
             <div
+              key={d.label}
               style={{
-                height: "100%",
-                width: `${Math.round((d.value / max) * 100)}%`,
-                background: "#2563eb",
-                borderRadius: 999,
+                display: "grid",
+                gridTemplateColumns: "12px 1fr auto",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 10px",
+                borderRadius: 14,
+                border: "1px solid rgba(0,0,0,0.06)",
+                background: "rgba(255,255,255,0.9)",
               }}
-            />
-          </div>
-        </div>
-      ))}
+            >
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 3,
+                  background: color,
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 750,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={d.label}
+              >
+                {d.label}
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                {pct}% · {d.value}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -126,19 +347,18 @@ export default function Dashboard() {
   async function load() {
     setLoading(true);
     setErr("");
+
     try {
       const { data, error } = await supabase
         .from("onboarding_questionnaire")
-        // ✅ sua tabela não tem updated_at, então NÃO pode selecionar
         .select("id,email,answers,created_at")
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .limit(2000);
 
       if (error) throw error;
       setRows(data || []);
     } catch (e) {
       setErr(e?.message || "Erro ao carregar dados.");
-      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -150,52 +370,80 @@ export default function Dashboard() {
 
   const total = rows.length;
 
-  const goal = useMemo(() => countBy(rows, "goal"), [rows]);
-  const blocker = useMemo(() => countBy(rows, "blocker"), [rows]);
-  const income = useMemo(() => countBy(rows, "income"), [rows]);
-  const invested = useMemo(() => countBy(rows, "invested"), [rows]);
-  const expenseControl = useMemo(() => countBy(rows, "expenseControl"), [rows]);
-  const coaching = useMemo(() => countBy(rows, "coaching"), [rows]);
+  /** ✅ monta automaticamente os gráficos na ordem do FLOW */
+  const charts = useMemo(() => {
+    return QUESTION_ORDER.filter((k) => !EXCLUDE_KEYS.has(k)).map((key) => {
+      const data = countBy(rows, key);
+      return {
+        key,
+        title: QUESTION_LABELS[key] || key,
+        data,
+      };
+    });
+  }, [rows]);
 
-  // extras (se existirem no answers)
-  const ageRange = useMemo(() => countBy(rows, "ageRange"), [rows]);
-  const spouse = useMemo(() => countBy(rows, "spouse"), [rows]);
-  const children = useMemo(() => countBy(rows, "children"), [rows]); // ✅ era kids
+  /** (extra) se aparecerem chaves novas no banco, mostra também no final */
+  const extraKeys = useMemo(() => {
+    const s = new Set();
+    for (const r of rows) {
+      const a = r?.answers || {};
+      Object.keys(a).forEach((k) => {
+        if (EXCLUDE_KEYS.has(k)) return;
+        if (QUESTION_ORDER.includes(k)) return;
+        s.add(k);
+      });
+    }
+    return Array.from(s);
+  }, [rows]);
+
+  const extraCharts = useMemo(() => {
+    return extraKeys.map((key) => ({
+      key,
+      title: QUESTION_LABELS[key] || key,
+      data: countBy(rows, key),
+    }));
+  }, [extraKeys, rows]);
 
   return (
     <div style={{ minHeight: "100dvh", background: "#f6f7fb" }}>
       <TopBar title="Admin • Dashboard" />
 
-      <div style={{ padding: 14, maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ padding: 14, maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "grid", gap: 12 }}>
+          {/* Resumo */}
           <Card
             title="Resumo"
-            subtitle="Dados lidos do Supabase (tabela onboarding_questionnaire)"
+            subtitle="Leitura direta do Supabase (onboarding_questionnaire). Ideal pra virar conteúdo do Instagram."
           >
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <div
                 style={{
-                  flex: "1 1 160px",
-                  background: "#0b1220",
+                  flex: "1 1 200px",
+                  background: "linear-gradient(135deg, #0b1220, #111827)",
                   color: "white",
-                  borderRadius: 14,
+                  borderRadius: 16,
                   padding: 14,
+                  border: "1px solid rgba(255,255,255,0.10)",
                 }}
               >
-                <div style={{ fontSize: 12, opacity: 0.8 }}>Respostas</div>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{total}</div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>Respostas</div>
+                <div style={{ fontSize: 28, fontWeight: 950 }}>{total}</div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+                  (últimos {Math.min(total, 2000)} registros)
+                </div>
               </div>
 
               <button
                 onClick={load}
                 style={{
-                  flex: "1 1 160px",
-                  borderRadius: 14,
+                  flex: "1 1 200px",
+                  borderRadius: 16,
                   padding: 14,
-                  border: "1px solid rgba(0,0,0,0.12)",
+                  border: "1px solid rgba(15,23,42,0.14)",
                   background: "white",
                   cursor: "pointer",
-                  fontWeight: 800,
+                  fontWeight: 900,
+                  color: "#0f172a",
                 }}
               >
                 Atualizar dados
@@ -204,17 +452,17 @@ export default function Dashboard() {
               <a
                 href="/analises"
                 style={{
-                  flex: "1 1 160px",
-                  borderRadius: 14,
+                  flex: "1 1 200px",
+                  borderRadius: 16,
                   padding: 14,
                   border: "none",
-                  background: "#2563eb",
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
                   color: "white",
                   textDecoration: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontWeight: 900,
+                  fontWeight: 950,
                 }}
               >
                 Ver análises
@@ -222,97 +470,90 @@ export default function Dashboard() {
             </div>
 
             {loading && (
-              <div style={{ marginTop: 12, color: "#6b7280" }}>Carregando…</div>
+              <div style={{ marginTop: 12, color: "#64748b" }}>
+                Carregando…
+              </div>
             )}
+
             {err && (
               <div style={{ marginTop: 12, color: "#b91c1c" }}>
                 {err}
-                <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
                   Se der erro aqui, normalmente é RLS/Policies ou variáveis do
-                  Vercel, ou SELECT pedindo coluna que não existe.
+                  Vercel (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).
                 </div>
               </div>
             )}
           </Card>
 
+          {/* Gráficos */}
           <div
             style={{
               display: "grid",
               gap: 12,
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
             }}
           >
-            <Card title="Objetivo principal (goal)">
-              {goal.length ? <BarChart data={goal} /> : <div>Sem dados</div>}
-            </Card>
+            {charts.map((c) => (
+              <Card
+                key={c.key}
+                title={c.title}
+                subtitle={`Chave: ${c.key}`}
+              >
+                <DonutChart data={c.data} />
+              </Card>
+            ))}
 
-            <Card title="Maior trava (blocker)">
-              {blocker.length ? <BarChart data={blocker} /> : <div>Sem dados</div>}
-            </Card>
-
-            <Card title="Renda (income)">
-              {income.length ? <BarChart data={income} /> : <div>Sem dados</div>}
-            </Card>
-
-            <Card title="Quanto já investe (invested)">
-              {invested.length ? <BarChart data={invested} /> : <div>Sem dados</div>}
-            </Card>
-
-            <Card title="Controle de despesas (expenseControl)">
-              {expenseControl.length ? (
-                <BarChart data={expenseControl} />
-              ) : (
-                <div>Sem dados</div>
-              )}
-            </Card>
-
-            <Card title="Acompanhamento ajuda? (coaching)">
-              {coaching.length ? <BarChart data={coaching} /> : <div>Sem dados</div>}
-            </Card>
-
-            <Card title="Faixa etária (ageRange)">
-              {ageRange.length ? (
-                <BarChart data={ageRange} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
+            {extraCharts.length > 0 ? (
+              <Card
+                title="Perguntas extras detectadas no banco"
+                subtitle="Essas chaves apareceram em answers mas não estão no seu FLOW."
+              >
+                <div style={{ display: "grid", gap: 12 }}>
+                  {extraCharts.map((c) => (
+                    <div
+                      key={c.key}
+                      style={{
+                        border: "1px solid rgba(0,0,0,0.06)",
+                        borderRadius: 16,
+                        padding: 12,
+                        background: "rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 950,
+                          fontSize: 13,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {c.title}{" "}
+                        <span style={{ color: "#64748b", fontWeight: 800 }}>
+                          ({c.key})
+                        </span>
+                      </div>
+                      <div style={{ marginTop: 10 }}>
+                        <DonutChart data={c.data} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </Card>
-
-            <Card title="Tem cônjuge? (spouse)">
-              {spouse.length ? (
-                <BarChart data={spouse} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
-                </div>
-              )}
-            </Card>
-
-            <Card title="Tem filhos? (children)">
-              {children.length ? (
-                <BarChart data={children} />
-              ) : (
-                <div style={{ color: "#6b7280" }}>
-                  Ainda sem dados (ou a pergunta ainda não existe no answers).
-                </div>
-              )}
-            </Card>
+              </Card>
+            ) : null}
           </div>
-        </div>
 
-        <div
-          style={{
-            marginTop: 14,
-            fontSize: 12,
-            color: "#6b7280",
-            paddingBottom: 20,
-          }}
-        >
-          Dica: depois a gente transforma em gráficos “pizza” usando uma lib.
-          Por enquanto, isso já funciona 100% em mobile e sem dependências
-          extras.
+          <div
+            style={{
+              marginTop: 2,
+              fontSize: 12,
+              color: "#64748b",
+              paddingBottom: 22,
+            }}
+          >
+            Dica: quando você tiver mais respostas, esses donuts ficam ainda mais
+            “postáveis” pro Instagram. Se quiser, depois eu te monto um layout
+            “modo post” (1080×1350) com 3–4 gráficos por slide.
+          </div>
         </div>
       </div>
     </div>
